@@ -1,0 +1,211 @@
+body {
+  margin: 0;
+  background: var(--color-bg);
+}
+a {
+  color: var(--color-accent-700);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-accent);
+}
+::-webkit-scrollbar {
+  width: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 24px 18px 100px;
+}
+
+/* — bottom tab bar (mobile) — */
+.tabbar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-bg);
+  padding: 8px 4px calc(14px + env(safe-area-inset-bottom, 0px));
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+}
+.tabbar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.tabbar-label {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* — side nav (desktop) — */
+.sidenav {
+  display: none;
+}
+
+/* — shared bits — */
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.avatar-badge {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid var(--color-divider);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  cursor: pointer;
+}
+.avatar-badge:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+.stat-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+}
+.stat-value {
+  font-family: var(--font-heading);
+  font-size: 19px;
+}
+.stat-sub {
+  font-size: 10px;
+  color: var(--color-neutral-600);
+}
+.aluno-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+  cursor: pointer;
+}
+.aluno-row:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+.avatar-square {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 1px solid var(--color-divider);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-heading);
+  font-size: 13px;
+}
+
+.toast {
+  position: fixed;
+  left: 18px;
+  right: 18px;
+  bottom: 96px;
+  z-index: 90;
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  padding: 11px 14px;
+  font-size: 13px;
+  box-shadow: var(--shadow-md);
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .tabbar {
+    display: none;
+  }
+  .sidenav {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    width: 236px;
+    flex: none;
+    padding: 32px 22px;
+    border-right: 1px solid var(--color-divider);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    box-sizing: border-box;
+  }
+  .sidenav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-heading);
+    font-size: 16px;
+    letter-spacing: -0.01em;
+  }
+  .sidenav-brand-mark {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    border: 1.5px solid var(--color-accent);
+    background: var(--color-accent);
+  }
+  .sidenav-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .sidenav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    cursor: pointer;
+  }
+  .sidenav-item:hover {
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  }
+  .sidenav-label {
+    font-family: var(--font-heading);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .app-content {
+    max-width: 760px;
+    padding: 44px 48px 64px;
+  }
+  .toast {
+    left: auto;
+    right: 32px;
+    bottom: 32px;
+    width: 360px;
+  }
+}
