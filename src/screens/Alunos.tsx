@@ -1,11 +1,15 @@
 import { useApp } from '../state/AppContext';
 
 export function Alunos() {
-  const { filtros, listaAlunos, busca, setBusca, contagem } = useApp();
+  const { filtros, listaAlunos, busca, setBusca, contagem, abrirNovoAluno, abrirAcademias } = useApp();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <h2 style={{ fontSize: 29, margin: 0 }}>Alunos</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <h2 style={{ fontSize: 29, margin: 0 }}>Alunos</h2>
+        <button className="btn btn-ghost" style={{ padding: 0 }} onClick={abrirAcademias}>Academias</button>
+      </div>
+      <button className="btn btn-primary btn-block" style={{ marginTop: 0 }} onClick={abrirNovoAluno}>+ Novo aluno</button>
       <input className="input" type="text" placeholder="Buscar aluno" value={busca} onChange={(e) => setBusca(e.target.value)} />
       <div className="seg" style={{ alignSelf: 'flex-start' }}>
         {filtros.map((f) => (

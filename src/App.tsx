@@ -5,6 +5,11 @@ import { FeriasModal } from './components/modals/FeriasModal';
 import { InativarModal } from './components/modals/InativarModal';
 import { CobrancaModal } from './components/modals/CobrancaModal';
 import { AjustesModal } from './components/modals/AjustesModal';
+import { AlunoFormModal } from './components/modals/AlunoFormModal';
+import { AlunoExcluirModal } from './components/modals/AlunoExcluirModal';
+import { AcademiasModal } from './components/modals/AcademiasModal';
+import { AcademiaFormModal } from './components/modals/AcademiaFormModal';
+import { DespesaFormModal } from './components/modals/DespesaFormModal';
 import { Painel } from './screens/Painel';
 import { Alunos } from './screens/Alunos';
 import { AlunoDetalhe } from './screens/AlunoDetalhe';
@@ -38,6 +43,11 @@ function Shell() {
       <InativarModal />
       <CobrancaModal />
       <AjustesModal />
+      <AlunoFormModal />
+      <AlunoExcluirModal />
+      <AcademiasModal />
+      <AcademiaFormModal />
+      <DespesaFormModal />
     </div>
   );
 }

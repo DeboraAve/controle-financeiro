@@ -2,12 +2,15 @@ import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 export function AlunoDetalhe() {
-  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar } = useApp();
+  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno } = useApp();
   if (!aluno) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <button className="btn btn-ghost" style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={voltar}>← Alunos</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <button className="btn btn-ghost" style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={voltar}>← Alunos</button>
+        <button className="btn btn-ghost" style={{ paddingInline: 0 }} onClick={() => abrirEditarAluno(aluno.id)}>Editar</button>
+      </div>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <h2 style={{ fontSize: 29, margin: 0 }}>{aluno.nome}</h2>
@@ -58,6 +61,7 @@ export function AlunoDetalhe() {
           <button className="btn btn-secondary" style={{ flex: 1 }} onClick={abrirFerias}>{aluno.textoFerias}</button>
           <button className="btn btn-secondary" style={{ flex: 1 }} onClick={abrirInativar}>{aluno.textoInativo}</button>
         </div>
+        <button className="btn btn-ghost" style={{ alignSelf: 'center', fontSize: 12 }} onClick={abrirExcluirAluno}>Excluir aluno de vez</button>
       </div>
 
       <div className="card" style={{ gap: 'var(--space-2)' }}>

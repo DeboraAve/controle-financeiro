@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Aluno, Despesa } from '../data/model';
-import { ALUNOS_SEED, CATS, DESPESAS_SEED, dia2 } from '../data/seed';
+import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
+import { ACADEMIAS_SEED, ACADEMIA_MODELOS, ALUNOS_SEED, CATS, DESPESAS_SEED, criarSessoesPadrao, dia2, iniciais } from '../data/seed';
 import { brl, calc } from '../lib/calc';
 import { useLocalStorageState } from './useLocalStorageState';
 import type { DomainState, UiState } from './types';
@@ -19,6 +19,9 @@ const initialUi: UiState = {
   msg: '',
   toast: null,
   diaSel: null,
+  editAlunoId: null,
+  editAcademiaId: null,
+  editDespesaId: null,
 };
 
 export interface AlunoListItem {
@@ -70,13 +73,48 @@ export interface AlunoDetalheVm {
   }[];
 }
 
+export interface AlunoFormPayload {
+  nome: string;
+  academiaId: number | null;
+  planoTipo: 'Pacote' | 'Mensalidade fixa';
+  valorPacote: number;
+  aulasPrevistas: number;
+  horario: string;
+  fone: string;
+  desde: string;
+}
+
+export interface AcademiaFormPayload {
+  nome: string;
+  modelo: ModeloCobranca;
+  valorCobrado: number;
+  custoPorTrecho: number;
+  viagensPorSemana: number;
+}
+
+export interface DespesaFormPayload {
+  dia: string;
+  cat: string;
+  desc: string;
+  valor: number;
+}
+
+function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number) {
+  const base = ac.modelo === 'mensal_fixo' ? ac.valorCobrado : ac.valorCobrado * nAtivos;
+  const desloc = ac.custoPorTrecho * ac.viagensPorSemana * semanasPorMes;
+  const total = nAtivos > 0 ? base + desloc : 0;
+  return { base, desloc, total };
+}
+
 function useAppStateInternal() {
-  const [domain, setDomain] = useLocalStorageState<DomainState>('controle-financeiro:v1', {
+  const [domain, setDomain] = useLocalStorageState<DomainState>('controle-financeiro:v2', {
     alunos: ALUNOS_SEED,
     despesas: DESPESAS_SEED,
+    academias: ACADEMIAS_SEED,
     grafico: 'Barras mensais',
     metaMensal: 7500,
     diasParaAtraso: 5,
+    semanasPorMes: 4,
   });
   const [ui, setUi] = useState<UiState>(initialUi);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -103,6 +141,7 @@ function useAppStateInternal() {
     const meta = domain.metaMensal;
     const prazo = domain.diasParaAtraso;
     const vizNome = domain.grafico;
+    const semanasPorMes = domain.semanasPorMes;
     const ativos = domain.alunos.filter((a) => a.status !== 'inativo');
     const calcs = new Map(domain.alunos.map((a) => [a.id, calc(a)]));
 
@@ -114,7 +153,15 @@ function useAppStateInternal() {
     const base = ativos.reduce((t, a) => t + a.base, 0);
     const descontos = ativos.reduce((t, a) => t + calcs.get(a.id)!.descCancel + calcs.get(a.id)!.ferias, 0);
     const extras = ativos.reduce((t, a) => t + calcs.get(a.id)!.totalExtras, 0);
-    const despTotal = domain.despesas.reduce((t, d) => t + d.valor, 0);
+    const despSoltasTotal = domain.despesas.reduce((t, d) => t + d.valor, 0);
+
+    const custosAcademias = domain.academias.map((ac) => {
+      const nAtivos = ativos.filter((al) => al.academiaId === ac.id).length;
+      return { academia: ac, nAtivos, ...custoAcademiaCalc(ac, nAtivos, semanasPorMes) };
+    });
+    const custoAcademiasTotal = custosAcademias.reduce((t, c) => t + c.total, 0);
+    const despTotal = despSoltasTotal + custoAcademiasTotal;
+
     const lucro = previsto - despTotal;
     const metaPct = Math.min(100, Math.round((previsto / meta) * 100));
     const faltam = meta - previsto;
@@ -152,6 +199,8 @@ function useAppStateInternal() {
       set: () => patchUi({ filtro: f }),
     }));
 
+    const academiaNome = (id: number | null) => domain.academias.find((ac) => ac.id === id)?.nome ?? null;
+
     const tagDe = (a: Aluno) =>
       a.status === 'ferias'
         ? { tagClass: 'tag tag-outline', tagTexto: 'Férias' }
@@ -178,12 +227,13 @@ function useAppStateInternal() {
     });
     const listaAlunos: AlunoListItem[] = visiveis.map((a) => {
       const c = calcs.get(a.id)!;
+      const nomeAcademia = academiaNome(a.academiaId);
       return {
         id: a.id,
         nome: a.nome,
         inicial: a.inicial,
         inicialCor: a.status === 'inativo' ? 'var(--color-neutral-500)' : 'var(--color-accent-700)',
-        sub: a.plano + ' · ' + a.horario,
+        sub: a.plano + ' · ' + a.horario + (nomeAcademia ? ' · ' + nomeAcademia : ''),
         totalFmt: brl(c.total),
         ...tagDe(a),
         ...pagDe(a),
@@ -201,7 +251,7 @@ function useAppStateInternal() {
         desde: a.desde,
         ...tagDe(a),
         linhaBase: a.plano.startsWith('Pacote') ? 'Pacote ' + a.previstas + ' aulas' : a.plano + ' · ' + a.previstas + ' aulas',
-        sub: a.plano + ' · ' + a.horario,
+        sub: a.plano + ' · ' + a.horario + (academiaNome(a.academiaId) ? ' · ' + academiaNome(a.academiaId) : ''),
         baseFmt: brl(a.base),
         descCancelFmt: brl(c.descCancel),
         feriasFmt: brl(c.ferias),
@@ -298,6 +348,31 @@ function useAppStateInternal() {
     );
     const totalDia = aulasDoDia.reduce((t, s) => t + (s.valor.startsWith('−') ? 0 : parseFloat(s.valor.replace(/[^\d]/g, ''))), 0);
 
+    const academiasResumo = custosAcademias.map(({ academia: ac, nAtivos, base: baseC, desloc, total }) => ({
+      id: ac.id,
+      nome: ac.nome,
+      modeloTexto: ac.modelo === 'mensal_fixo' ? 'Mensal fixo' : 'Por aluno',
+      valorCobradoFmt: brl(ac.valorCobrado),
+      deslocTexto: ac.custoPorTrecho > 0 ? brl(ac.custoPorTrecho) + ' × ' + ac.viagensPorSemana + '/sem' : '—',
+      nAtivos,
+      baseFmt: brl(baseC),
+      deslocFmt: brl(desloc),
+      custoMensalFmt: brl(total),
+      editar: () => patchUi({ modal: 'academiaForm', editAcademiaId: ac.id }),
+      excluir: () => {
+        if (nAtivos > 0) {
+          showToast('Tem ' + nAtivos + ' aluno(s) em ' + ac.nome + ' — troque a academia deles antes de excluir.');
+          return;
+        }
+        setDomain((s) => ({ ...s, academias: s.academias.filter((x) => x.id !== ac.id) }));
+        showToast(ac.nome + ' excluída.');
+      },
+    }));
+
+    const editandoAcademia = domain.academias.find((ac) => ac.id === S.editAcademiaId) ?? null;
+    const editandoAluno = domain.alunos.find((al) => al.id === S.editAlunoId) ?? null;
+    const editandoDespesa = domain.despesas.find((d) => d.id === S.editDespesaId) ?? null;
+
     return {
       isPainel: S.tab === 'painel',
       isAlunos: S.tab === 'alunos',
@@ -317,6 +392,8 @@ function useAppStateInternal() {
         abertos: ativos.filter((x) => x.pag === 'aberto' || x.pag === 'cobrado').length,
         atrasados: emAtraso.length,
         despesas: brl(despTotal),
+        despesasSoltasFmt: brl(despSoltasTotal),
+        custoAcademiasFmt: brl(custoAcademiasTotal),
         qtdDespesas: domain.despesas.length,
         lucro: brl(lucro),
         margem: Math.round((lucro / (previsto || 1)) * 100),
@@ -397,7 +474,7 @@ function useAppStateInternal() {
       modalCobranca: S.modal === 'cobranca',
       modalAjustes: S.modal === 'ajustes',
       abrirAjustes: () => patchUi({ modal: 'ajustes' }),
-      fecharModal: () => patchUi({ modal: null }),
+      fecharModal: () => patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null }),
       feriasValor: S.feriasValor,
       setFeriasValor: (v: string) => patchUi({ feriasValor: v.replace(/[^\d]/g, '') }),
       feriasPreview: a ? brl(Math.max(0, calcs.get(a.id)!.total - (parseInt(S.feriasValor || '0', 10) - calcs.get(a.id)!.ferias))) : '',
@@ -456,7 +533,112 @@ function useAppStateInternal() {
         patchUi({ despValor: '', despDesc: '' });
         showToast('Despesa de ' + brl(v) + ' lançada.');
       },
-      despesas: domain.despesas.map((d) => ({ id: d.id, dia: d.dia, cat: d.cat, desc: d.desc, valor: brl(d.valor) })),
+      despesas: domain.despesas.map((d) => ({
+        id: d.id,
+        dia: d.dia,
+        cat: d.cat,
+        desc: d.desc,
+        valor: brl(d.valor),
+        editar: () => patchUi({ modal: 'despesaForm', editDespesaId: d.id }),
+      })),
+      academiasResumo,
+      custoAcademiasFmt: brl(custoAcademiasTotal),
+      modalAcademias: S.modal === 'academias',
+      abrirAcademias: () => patchUi({ modal: 'academias' }),
+      abrirNovaAcademia: () => patchUi({ modal: 'academiaForm', editAcademiaId: null }),
+      modalAcademiaForm: S.modal === 'academiaForm',
+      editandoAcademia,
+      academiaModelos: ACADEMIA_MODELOS,
+      fecharAcademiaForm: () => patchUi({ modal: 'academias', editAcademiaId: null }),
+      salvarAcademia: (payload: AcademiaFormPayload) => {
+        if (!payload.nome.trim()) {
+          showToast('Dá um nome pra academia.');
+          return;
+        }
+        if (S.editAcademiaId) {
+          setDomain((s) => ({
+            ...s,
+            academias: s.academias.map((ac) => (ac.id === S.editAcademiaId ? { ...ac, ...payload } : ac)),
+          }));
+          showToast(payload.nome + ' atualizada.');
+        } else {
+          setDomain((s) => ({ ...s, academias: [...s.academias, { ...payload, id: Date.now() }] }));
+          showToast(payload.nome + ' cadastrada.');
+        }
+        patchUi({ modal: 'academias', editAcademiaId: null });
+      },
+      academiasOptions: domain.academias.map((ac) => ({ id: ac.id, nome: ac.nome })),
+      modalAlunoForm: S.modal === 'alunoForm',
+      editandoAluno,
+      abrirNovoAluno: () => patchUi({ modal: 'alunoForm', editAlunoId: null }),
+      abrirEditarAluno: (id: number) => patchUi({ modal: 'alunoForm', editAlunoId: id }),
+      salvarAluno: (payload: AlunoFormPayload) => {
+        if (!payload.nome.trim()) {
+          showToast('Dá um nome pro aluno.');
+          return;
+        }
+        const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + payload.aulasPrevistas + ' aulas' : 'Mensalidade fixa';
+        if (S.editAlunoId) {
+          patchAluno(S.editAlunoId, (x) => ({
+            ...x,
+            nome: payload.nome,
+            inicial: iniciais(payload.nome),
+            academiaId: payload.academiaId,
+            plano,
+            base: payload.valorPacote,
+            previstas: payload.aulasPrevistas,
+            horario: payload.horario,
+            fone: payload.fone,
+            desde: payload.desde,
+          }));
+          showToast(payload.nome + ' atualizado.');
+        } else {
+          const novo: Aluno = {
+            id: Date.now(),
+            nome: payload.nome,
+            inicial: iniciais(payload.nome),
+            academiaId: payload.academiaId,
+            plano,
+            base: payload.valorPacote,
+            previstas: payload.aulasPrevistas,
+            horario: payload.horario,
+            fone: payload.fone,
+            desde: payload.desde,
+            status: 'ativo',
+            pag: 'aberto',
+            ferias: 0,
+            sessoes: criarSessoesPadrao(payload.aulasPrevistas),
+          };
+          setDomain((s) => ({ ...s, alunos: [...s.alunos, novo] }));
+          showToast(payload.nome + ' cadastrado.');
+        }
+        patchUi({ modal: null, editAlunoId: null });
+      },
+      modalAlunoExcluir: S.modal === 'alunoExcluir',
+      abrirExcluirAluno: () => a && patchUi({ modal: 'alunoExcluir' }),
+      confirmarExcluirAluno: () => {
+        if (!a) return;
+        setDomain((s) => ({ ...s, alunos: s.alunos.filter((x) => x.id !== a.id) }));
+        patchUi({ modal: null, tab: 'alunos', alunoId: null });
+        showToast(a.nome + ' excluído de vez.');
+      },
+      modalDespesaForm: S.modal === 'despesaForm',
+      editandoDespesa,
+      salvarDespesa: (payload: DespesaFormPayload) => {
+        if (!S.editDespesaId) return;
+        setDomain((s) => ({
+          ...s,
+          despesas: s.despesas.map((d) => (d.id === S.editDespesaId ? { ...d, ...payload } : d)),
+        }));
+        patchUi({ modal: null, editDespesaId: null });
+        showToast('Despesa atualizada.');
+      },
+      excluirDespesa: () => {
+        if (!S.editDespesaId) return;
+        setDomain((s) => ({ ...s, despesas: s.despesas.filter((d) => d.id !== S.editDespesaId) }));
+        patchUi({ modal: null, editDespesaId: null });
+        showToast('Despesa excluída.');
+      },
       cobranca: {
         frase: cobraveis.length ? brl(aberto + atrasado) + ' em aberto entre ' + cobraveis.length + ' alunos' : 'Nada em aberto',
         vazio: cobraveis.length === 0,
@@ -506,6 +688,8 @@ function useAppStateInternal() {
       setMetaMensal: (v: number) => setDomain((s) => ({ ...s, metaMensal: v })),
       diasParaAtraso: domain.diasParaAtraso,
       setDiasParaAtraso: (v: number) => setDomain((s) => ({ ...s, diasParaAtraso: v })),
+      semanasPorMes: domain.semanasPorMes,
+      setSemanasPorMes: (v: number) => setDomain((s) => ({ ...s, semanasPorMes: v })),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [domain, ui, atual, patchUi, patchAluno, showToast, setDomain]);

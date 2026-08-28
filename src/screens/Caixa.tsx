@@ -2,7 +2,10 @@ import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 export function Caixa() {
-  const { resumo, categorias, despValor, despDesc, setDespValor, setDespDesc, despPreview, addDespesa, despesas } = useApp();
+  const {
+    resumo, categorias, despValor, despDesc, setDespValor, setDespDesc, despPreview, addDespesa, despesas,
+    academiasResumo, abrirAcademias,
+  } = useApp();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -43,9 +46,16 @@ export function Caixa() {
       </BlueprintCard>
 
       <BlueprintCard style={{ gap: 'var(--space-2)' }}>
-        <div className="card-kicker">Setembro · saídas</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div className="card-kicker">Setembro · saídas soltas</div>
+          <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>toque pra editar</div>
+        </div>
         {despesas.map((d) => (
-          <div key={d.id} style={{ display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 7 }}>
+          <div
+            key={d.id}
+            onClick={d.editar}
+            style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 7 }}
+          >
             <div style={{ width: 34, fontFamily: 'var(--font-heading)', fontSize: 12, color: 'var(--color-accent-700)' }}>{d.dia}</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14 }}>{d.desc}</div>
@@ -54,6 +64,26 @@ export function Caixa() {
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14 }}>− {d.valor}</div>
           </div>
         ))}
+        {despesas.length === 0 && <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhuma despesa solta lançada ainda.</div>}
+      </BlueprintCard>
+
+      <BlueprintCard style={{ gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div className="card-kicker">Custo fixo das academias</div>
+          <button className="btn btn-ghost" style={{ padding: 0, fontSize: 11 }} onClick={abrirAcademias}>gerenciar</button>
+        </div>
+        {academiasResumo.filter((ac) => ac.nAtivos > 0).map((ac) => (
+          <div key={ac.id} style={{ display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 7 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14 }}>{ac.nome}</div>
+              <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{ac.modeloTexto} · {ac.nAtivos} aluno(s)</div>
+            </div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14 }}>− {ac.custoMensalFmt}</div>
+          </div>
+        ))}
+        {academiasResumo.filter((ac) => ac.nAtivos > 0).length === 0 && (
+          <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhuma academia com aluno ativo agora.</div>
+        )}
       </BlueprintCard>
       <div style={{ height: 6 }} />
     </div>
