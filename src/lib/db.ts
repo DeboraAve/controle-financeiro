@@ -433,11 +433,16 @@ export async function deleteAvaliacaoRow(id: string): Promise<void> {
 }
 
 // ---- profile / papel (admin ou personal) ----
+export type MensalidadeStatus = 'pago' | 'aberto' | 'atrasado' | 'cobrado';
+
 export interface ProfileRow {
   id: string;
   role: 'admin' | 'personal';
   nome: string;
   email: string;
+  fone: string;
+  mensalidade_valor: number;
+  mensalidade_status: MensalidadeStatus;
 }
 
 export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
@@ -450,4 +455,13 @@ export async function fetchAllProfiles(): Promise<ProfileRow[]> {
   const { data, error } = await supabase.from('profiles').select('*');
   if (error) throw error;
   return (data ?? []) as ProfileRow[];
+}
+
+export async function updateProfileBilling(id: string, patch: Partial<{ fone: string; mensalidadeValor: number; mensalidadeStatus: MensalidadeStatus }>): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.fone !== undefined) row.fone = patch.fone;
+  if (patch.mensalidadeValor !== undefined) row.mensalidade_valor = patch.mensalidadeValor;
+  if (patch.mensalidadeStatus !== undefined) row.mensalidade_status = patch.mensalidadeStatus;
+  const { error } = await supabase.from('profiles').update(row).eq('id', id);
+  if (error) throw error;
 }

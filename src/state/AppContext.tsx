@@ -134,6 +134,14 @@ export interface AvaliacaoFormPayload {
   observacoes: string;
 }
 
+function abrirWhatsApp(fone: string, msg: string): boolean {
+  const digits = fone.replace(/\D/g, '');
+  if (!digits) return false;
+  const comDdi = digits.length <= 11 ? '55' + digits : digits;
+  window.open('https://wa.me/' + comDdi + '?text=' + encodeURIComponent(msg), '_blank');
+  return true;
+}
+
 function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number) {
   const base = ac.modelo === 'mensal_fixo' ? ac.valorCobrado : ac.valorCobrado * nAtivos;
   const desloc = ac.custoPorTrecho * ac.viagensPorSemana * semanasPorMes;
@@ -259,6 +267,35 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           receitaFmt: brl(receita),
           atrasados: atrasadosP,
           entrar: () => patchUi({ adminViewingUserId: p.id, tab: 'painel' }),
+          fone: p.fone,
+          setFone: (v: string) => {
+            setProfiles((s) => s.map((x) => (x.id === p.id ? { ...x, fone: v } : x)));
+            db.updateProfileBilling(p.id, { fone: v }).catch(reportError);
+          },
+          mensalidadeValor: p.mensalidade_valor,
+          setMensalidadeValor: (v: number) => {
+            setProfiles((s) => s.map((x) => (x.id === p.id ? { ...x, mensalidade_valor: v } : x)));
+            db.updateProfileBilling(p.id, { mensalidadeValor: v }).catch(reportError);
+          },
+          mensalidadeStatus: p.mensalidade_status,
+          mensalidadeTagClass: 'tag ' + (p.mensalidade_status === 'atrasado' ? 'tag-accent' : p.mensalidade_status === 'pago' ? 'tag-neutral' : p.mensalidade_status === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
+          mensalidadeTagTexto: p.mensalidade_status === 'pago' ? 'pago' : p.mensalidade_status === 'atrasado' ? 'atrasado' : p.mensalidade_status === 'cobrado' ? 'cobrado' : 'em aberto',
+          cobrarMensalidade: () => {
+            const nome = (p.nome || p.email).split(' ')[0];
+            const msg = 'Oi, ' + nome + '! Passando pra lembrar da mensalidade do app: ' + brl(p.mensalidade_valor) + '. Consegue acertar?';
+            if (!abrirWhatsApp(p.fone, msg)) {
+              showToast('Cadastra o telefone de ' + nome + ' pra poder cobrar por WhatsApp.');
+              return;
+            }
+            setProfiles((s) => s.map((x) => (x.id === p.id ? { ...x, mensalidade_status: 'cobrado' } : x)));
+            db.updateProfileBilling(p.id, { mensalidadeStatus: 'cobrado' }).catch(reportError);
+            showToast('WhatsApp aberto pra ' + nome + '.');
+          },
+          receberMensalidade: () => {
+            setProfiles((s) => s.map((x) => (x.id === p.id ? { ...x, mensalidade_status: 'pago' } : x)));
+            db.updateProfileBilling(p.id, { mensalidadeStatus: 'pago' }).catch(reportError);
+            showToast((p.nome || p.email).split(' ')[0] + ' pago. Boa!');
+          },
         };
       });
     const meta = domain.metaMensal;
@@ -944,13 +981,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       enviarCobranca: () => {
         if (S.cobrandoId == null) return;
         const id = S.cobrandoId;
-        const digits = cobrando.fone.replace(/\D/g, '');
-        if (!digits) {
+        if (!abrirWhatsApp(cobrando.fone, S.msg)) {
           showToast('Cadastra o telefone de ' + cobrando.nome.split(' ')[0] + ' pra poder cobrar por WhatsApp.');
           return;
         }
-        const comDdi = digits.length <= 11 ? '55' + digits : digits;
-        window.open('https://wa.me/' + comDdi + '?text=' + encodeURIComponent(S.msg), '_blank');
         patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
         db.setAlunoPag(id, 'cobrado').catch(reportError);
         patchUi({ modal: null });
