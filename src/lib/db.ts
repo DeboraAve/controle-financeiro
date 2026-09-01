@@ -12,6 +12,7 @@ interface AcademiaRow {
 
 interface AlunoRow {
   id: string;
+  user_id: string;
   academia_id: string | null;
   nome: string;
   inicial: string;
@@ -94,6 +95,7 @@ export interface RemoteDomain {
   alunos: Aluno[];
   despesas: Despesa[];
   ajustes: AjustesData;
+  donoPorAluno: Record<string, string>;
 }
 
 export async function fetchDomain(userId: string): Promise<RemoteDomain> {
@@ -136,11 +138,16 @@ export async function fetchDomain(userId: string): Promise<RemoteDomain> {
     });
   }
 
+  const alunoRows = (alunosRes.data ?? []) as AlunoRow[];
+  const donoPorAluno: Record<string, string> = {};
+  for (const r of alunoRows) donoPorAluno[r.id] = r.user_id;
+
   return {
     academias: ((academiasRes.data ?? []) as AcademiaRow[]).map(academiaFromRow),
-    alunos: ((alunosRes.data ?? []) as AlunoRow[]).map((r) => alunoFromRow(r, sessoesByAluno.get(r.id) ?? [])),
+    alunos: alunoRows.map((r) => alunoFromRow(r, sessoesByAluno.get(r.id) ?? [])),
     despesas: ((despesasRes.data ?? []) as DespesaRow[]).map(despesaFromRow),
     ajustes,
+    donoPorAluno,
   };
 }
 
@@ -306,4 +313,95 @@ export async function upsertAjustes(userId: string, patch: Partial<{ grafico: st
   if (patch.semanasPorMes !== undefined) row.semanas_por_mes = patch.semanasPorMes;
   const { error } = await supabase.from('ajustes').upsert(row);
   if (error) throw error;
+}
+
+// ---- avaliações físicas ----
+export interface AvaliacaoRow {
+  id: string;
+  aluno_id: string;
+  data: string;
+  peso: number;
+  estatura: number;
+  idade: number;
+  sexo: 'M' | 'F';
+  dobra_peitoral: number | null;
+  dobra_axilar: number | null;
+  dobra_triceps: number | null;
+  dobra_subescapular: number | null;
+  dobra_abdominal: number | null;
+  dobra_suprailiaca: number | null;
+  dobra_coxa: number | null;
+  observacoes: string;
+}
+
+export interface AvaliacaoPayload {
+  data: string;
+  peso: number;
+  estatura: number;
+  idade: number;
+  sexo: 'M' | 'F';
+  dobraPeitoral: number | null;
+  dobraAxilar: number | null;
+  dobraTriceps: number | null;
+  dobraSubescapular: number | null;
+  dobraAbdominal: number | null;
+  dobraSuprailiaca: number | null;
+  dobraCoxa: number | null;
+  observacoes: string;
+}
+
+export async function fetchAvaliacoes(alunoId: string): Promise<AvaliacaoRow[]> {
+  const { data, error } = await supabase.from('avaliacoes').select('*').eq('aluno_id', alunoId).order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AvaliacaoRow[];
+}
+
+export async function insertAvaliacao(alunoId: string, payload: AvaliacaoPayload): Promise<AvaliacaoRow> {
+  const { data, error } = await supabase
+    .from('avaliacoes')
+    .insert({
+      aluno_id: alunoId,
+      data: payload.data,
+      peso: payload.peso,
+      estatura: payload.estatura,
+      idade: payload.idade,
+      sexo: payload.sexo,
+      dobra_peitoral: payload.dobraPeitoral,
+      dobra_axilar: payload.dobraAxilar,
+      dobra_triceps: payload.dobraTriceps,
+      dobra_subescapular: payload.dobraSubescapular,
+      dobra_abdominal: payload.dobraAbdominal,
+      dobra_suprailiaca: payload.dobraSuprailiaca,
+      dobra_coxa: payload.dobraCoxa,
+      observacoes: payload.observacoes,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AvaliacaoRow;
+}
+
+export async function deleteAvaliacaoRow(id: string): Promise<void> {
+  const { error } = await supabase.from('avaliacoes').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ---- profile / papel (admin ou personal) ----
+export interface ProfileRow {
+  id: string;
+  role: 'admin' | 'personal';
+  nome: string;
+  email: string;
+}
+
+export async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if (error) throw error;
+  return data as ProfileRow | null;
+}
+
+export async function fetchAllProfiles(): Promise<ProfileRow[]> {
+  const { data, error } = await supabase.from('profiles').select('*');
+  if (error) throw error;
+  return (data ?? []) as ProfileRow[];
 }

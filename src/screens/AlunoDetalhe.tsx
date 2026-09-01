@@ -2,7 +2,7 @@ import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 export function AlunoDetalhe() {
-  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno } = useApp();
+  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, abrirNovaAvaliacao } = useApp();
   if (!aluno) return null;
 
   return (
@@ -63,6 +63,27 @@ export function AlunoDetalhe() {
         </div>
         <button className="btn btn-ghost" style={{ alignSelf: 'center', fontSize: 12 }} onClick={abrirExcluirAluno}>Excluir aluno de vez</button>
       </div>
+
+      <BlueprintCard style={{ gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div className="card-kicker">Avaliação física</div>
+          <button className="btn btn-ghost" style={{ padding: 0, fontSize: 12 }} onClick={abrirNovaAvaliacao}>+ Nova</button>
+        </div>
+        {avaliacoes.map((av) => (
+          <div key={av.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontFamily: 'var(--font-heading)', fontSize: 15 }}>{av.data}</span>
+              <button className="btn btn-ghost" style={{ padding: 0, fontSize: 11 }} onClick={av.excluir}>excluir</button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}>
+              {av.pesoFmt} · IMC {av.imcFmt} ({av.imcClasse}) · {av.risco}
+              {av.temDobras && <> · {av.percentualGorduraFmt} gordura · {av.massaMagraFmt} massa magra</>}
+            </div>
+            {av.observacoes && <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{av.observacoes}</div>}
+          </div>
+        ))}
+        {avaliacoes.length === 0 && <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhuma avaliação registrada ainda.</div>}
+      </BlueprintCard>
 
       <div className="card" style={{ gap: 'var(--space-2)' }}>
         <div className="card-kicker">Histórico</div>

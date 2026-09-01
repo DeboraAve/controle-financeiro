@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
 import { ACADEMIA_MODELOS, CATS, criarSessoesPadrao, dia2, iniciais } from '../data/seed';
 import { brl, calc } from '../lib/calc';
+import { calcularAvaliacao } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import type { DomainState, UiState } from './types';
@@ -110,6 +111,22 @@ export interface DespesaFormPayload {
   valor: number;
 }
 
+export interface AvaliacaoFormPayload {
+  data: string;
+  peso: number;
+  estatura: number;
+  idade: number;
+  sexo: 'M' | 'F';
+  dobraPeitoral: number | null;
+  dobraAxilar: number | null;
+  dobraTriceps: number | null;
+  dobraSubescapular: number | null;
+  dobraAbdominal: number | null;
+  dobraSuprailiaca: number | null;
+  dobraCoxa: number | null;
+  observacoes: string;
+}
+
 function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number) {
   const base = ac.modelo === 'mensal_fixo' ? ac.valorCobrado : ac.valorCobrado * nAtivos;
   const desloc = ac.custoPorTrecho * ac.viagensPorSemana * semanasPorMes;
@@ -117,8 +134,11 @@ function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number)
   return { base, desloc, total };
 }
 
-function useAppStateInternal(userId: string) {
+function useAppStateInternal(userId: string, isAdmin: boolean) {
   const [domain, setDomain] = useState<DomainState>(emptyDomain);
+  const [donoPorAluno, setDonoPorAluno] = useState<Record<string, string>>({});
+  const [profiles, setProfiles] = useState<db.ProfileRow[]>([]);
+  const [avaliacoes, setAvaliacoes] = useState<db.AvaliacaoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [ui, setUi] = useState<UiState>(initialUi);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -151,6 +171,7 @@ function useAppStateInternal(userId: string) {
           diasParaAtraso: remote.ajustes.diasParaAtraso,
           semanasPorMes: remote.ajustes.semanasPorMes,
         });
+        setDonoPorAluno(remote.donoPorAluno);
       })
       .catch((e) => reportError(e))
       .finally(() => {
@@ -161,6 +182,20 @@ function useAppStateInternal(userId: string) {
     };
   }, [userId, reportError]);
 
+  useEffect(() => {
+    if (!isAdmin) {
+      setProfiles([]);
+      return;
+    }
+    let ativo = true;
+    db.fetchAllProfiles()
+      .then((rows) => ativo && setProfiles(rows))
+      .catch((e) => reportError(e));
+    return () => {
+      ativo = false;
+    };
+  }, [isAdmin, reportError]);
+
   const patchAlunoLocal = useCallback((id: string, fn: (a: Aluno) => Aluno) => {
     setDomain((s) => ({
       ...s,
@@ -169,6 +204,20 @@ function useAppStateInternal(userId: string) {
   }, []);
 
   const atual = domain.alunos.find((a) => a.id === ui.alunoId);
+
+  useEffect(() => {
+    if (!atual) {
+      setAvaliacoes([]);
+      return;
+    }
+    let ativo = true;
+    db.fetchAvaliacoes(atual.id)
+      .then((rows) => ativo && setAvaliacoes(rows))
+      .catch((e) => reportError(e));
+    return () => {
+      ativo = false;
+    };
+  }, [atual?.id, reportError]);
 
   const vm = useMemo(() => {
     const S = ui;
@@ -234,6 +283,14 @@ function useAppStateInternal(userId: string) {
     }));
 
     const academiaNome = (id: string | null) => domain.academias.find((ac) => ac.id === id)?.nome ?? null;
+    const profilesPorId = new Map(profiles.map((p) => [p.id, p]));
+    const donoNome = (alunoId: string) => {
+      if (!isAdmin) return null;
+      const donoId = donoPorAluno[alunoId];
+      if (!donoId || donoId === userId) return null;
+      const p = profilesPorId.get(donoId);
+      return p?.nome || p?.email || null;
+    };
 
     const tagDe = (a: Aluno) =>
       a.status === 'ferias'
@@ -262,12 +319,13 @@ function useAppStateInternal(userId: string) {
     const listaAlunos: AlunoListItem[] = visiveis.map((a) => {
       const c = calcs.get(a.id)!;
       const nomeAcademia = academiaNome(a.academiaId);
+      const dono = donoNome(a.id);
       return {
         id: a.id,
         nome: a.nome,
         inicial: a.inicial,
         inicialCor: a.status === 'inativo' ? 'var(--color-neutral-500)' : 'var(--color-accent-700)',
-        sub: a.plano + ' · ' + a.horario + (nomeAcademia ? ' · ' + nomeAcademia : ''),
+        sub: a.plano + ' · ' + a.horario + (nomeAcademia ? ' · ' + nomeAcademia : '') + (dono ? ' · personal: ' + dono : ''),
         totalFmt: brl(c.total),
         ...tagDe(a),
         ...pagDe(a),
@@ -412,8 +470,42 @@ function useAppStateInternal(userId: string) {
     const editandoAluno = domain.alunos.find((al) => al.id === S.editAlunoId) ?? null;
     const editandoDespesa = domain.despesas.find((d) => d.id === S.editDespesaId) ?? null;
 
+    const avaliacoesFmt = avaliacoes.map((r) => {
+      const res = calcularAvaliacao({
+        peso: r.peso,
+        estatura: r.estatura,
+        idade: r.idade,
+        sexo: r.sexo,
+        dobraPeitoral: r.dobra_peitoral,
+        dobraAxilar: r.dobra_axilar,
+        dobraTriceps: r.dobra_triceps,
+        dobraSubescapular: r.dobra_subescapular,
+        dobraAbdominal: r.dobra_abdominal,
+        dobraSuprailiaca: r.dobra_suprailiaca,
+        dobraCoxa: r.dobra_coxa,
+      });
+      return {
+        id: r.id,
+        data: r.data,
+        pesoFmt: r.peso.toLocaleString('pt-BR') + ' kg',
+        imcFmt: res.imc.toFixed(1),
+        imcClasse: res.imcClasse,
+        risco: res.risco,
+        temDobras: res.temDobras,
+        percentualGorduraFmt: res.percentualGordura != null ? res.percentualGordura.toFixed(1) + '%' : '—',
+        massaMagraFmt: res.massaMagra != null ? res.massaMagra.toFixed(1) + ' kg' : '—',
+        observacoes: r.observacoes,
+        excluir: () => {
+          setAvaliacoes((s) => s.filter((x) => x.id !== r.id));
+          db.deleteAvaliacaoRow(r.id).catch(reportError);
+          showToast('Avaliação excluída.');
+        },
+      };
+    });
+
     return {
       loading,
+      isAdmin,
       isPainel: S.tab === 'painel',
       isAlunos: S.tab === 'alunos',
       isDetalhe: S.tab === 'aluno' && !!a,
@@ -673,6 +765,19 @@ function useAppStateInternal(userId: string) {
         patchUi({ modal: null, tab: 'alunos', alunoId: null });
         showToast(nome + ' excluído de vez.');
       },
+      avaliacoes: avaliacoesFmt,
+      modalAvaliacaoForm: S.modal === 'avaliacaoForm',
+      abrirNovaAvaliacao: () => patchUi({ modal: 'avaliacaoForm' }),
+      salvarAvaliacao: (payload: AvaliacaoFormPayload) => {
+        if (!a) return;
+        db.insertAvaliacao(a.id, payload)
+          .then((nova) => {
+            setAvaliacoes((s) => [nova, ...s]);
+            patchUi({ modal: null });
+            showToast('Avaliação registrada.');
+          })
+          .catch(reportError);
+      },
       modalDespesaForm: S.modal === 'despesaForm',
       editandoDespesa,
       salvarDespesa: (payload: DespesaFormPayload) => {
@@ -759,7 +864,7 @@ function useAppStateInternal(userId: string) {
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId]);
+  }, [domain, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId, isAdmin, donoPorAluno, profiles, avaliacoes]);
 
   return vm;
 }
@@ -769,14 +874,14 @@ type AppVm = ReturnType<typeof useAppStateInternal>;
 const AppContext = createContext<AppVm | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, isAdmin } = useAuth();
   const userId = session?.user.id;
   if (!userId) return null;
-  return <AppProviderInner userId={userId}>{children}</AppProviderInner>;
+  return <AppProviderInner userId={userId} isAdmin={isAdmin}>{children}</AppProviderInner>;
 }
 
-function AppProviderInner({ userId, children }: { userId: string; children: ReactNode }) {
-  const vm = useAppStateInternal(userId);
+function AppProviderInner({ userId, isAdmin, children }: { userId: string; isAdmin: boolean; children: ReactNode }) {
+  const vm = useAppStateInternal(userId, isAdmin);
   return <AppContext.Provider value={vm}>{children}</AppContext.Provider>;
 }
 

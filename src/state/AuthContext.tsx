@@ -1,10 +1,12 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { fetchProfile } from '../lib/db';
 import { supabase } from '../lib/supabaseClient';
 
 interface AuthVm {
   session: Session | null;
   loading: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signUp: (email: string, password: string, nome: string) => Promise<string | null>;
   signOut: () => void;
@@ -15,6 +17,7 @@ const AuthContext = createContext<AuthVm | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -27,9 +30,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId) {
+      setIsAdmin(false);
+      return;
+    }
+    let ativo = true;
+    fetchProfile(userId)
+      .then((profile) => {
+        if (ativo) setIsAdmin(profile?.role === 'admin');
+      })
+      .catch(() => {
+        if (ativo) setIsAdmin(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [session?.user.id]);
+
   const vm: AuthVm = {
     session,
     loading,
+    isAdmin,
     signIn: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return error ? error.message : null;
