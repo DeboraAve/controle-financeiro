@@ -1,7 +1,7 @@
 import { useApp } from '../state/AppContext';
 
 function Marker({ color, filled }: { color: string; filled: string }) {
-  return <div style={{ width: 15, height: 15, border: '1.5px solid currentColor', background: filled, color, flex: 'none' }} />;
+  return <div style={{ width: 15, height: 15, borderRadius: 5, background: filled, color, flex: 'none' }} />;
 }
 
 export function TabBar() {

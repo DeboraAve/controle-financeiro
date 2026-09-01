@@ -636,7 +636,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           key: k,
           rotulo: r,
           cor: on ? 'var(--color-accent-800)' : 'var(--color-neutral-500)',
-          marca: on ? 'currentColor' : 'transparent',
+          marca: on ? 'var(--color-accent)' : 'var(--color-neutral-300)',
           ir: () => patchUi({ tab: k, alunoId: null }),
         };
       }),
