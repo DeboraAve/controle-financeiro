@@ -21,6 +21,7 @@ const initialUi: UiState = {
   msg: '',
   toast: null,
   diaSel: null,
+  agendaView: 'semana',
   editAlunoId: null,
   editAcademiaId: null,
   editDespesaId: null,
@@ -399,14 +400,66 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const cobrando = domain.alunos.find((x) => x.id === S.cobrandoId) || { nome: '', fone: '' };
 
     const diasComAula: Record<number, number> = {};
+    const sessoesPorDia: Record<number, number> = {};
     ativos.forEach((x) =>
       x.sessoes.forEach((s) => {
-        if (s.s === 'cancelada') return;
         const n = parseInt(s.dia, 10);
+        if (s.s === 'cancelada') return;
         diasComAula[n] = (diasComAula[n] || 0) + calcs.get(x.id)!.valorAula;
+        sessoesPorDia[n] = (sessoesPorDia[n] || 0) + 1;
       }),
     );
-    const selecionado = S.diaSel || 15;
+    const agora = new Date();
+    const hojeDia = agora.getFullYear() === 2026 && agora.getMonth() === 8 ? agora.getDate() : 15;
+    const selecionado = Math.min(30, Math.max(1, S.diaSel || hojeDia));
+    const diaSemanaDe = (n: number) => new Date(2026, 8, n).getDay();
+    const nomesSemana = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+    const inicioSemana = selecionado - diaSemanaDe(selecionado);
+    const semanaAtual: {
+      n: number | string;
+      rotulo: string;
+      valor: number | string;
+      borda: string;
+      fundo: string;
+      cor: string;
+      cursor: string;
+      selecionar: () => void;
+      key: string;
+    }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const n = inicioSemana + i;
+      if (n < 1 || n > 30) {
+        semanaAtual.push({ n: '', rotulo: nomesSemana[i], valor: '', borda: 'transparent', fundo: 'transparent', cor: 'transparent', cursor: 'default', selecionar: () => {}, key: 'wpad' + i });
+        continue;
+      }
+      const v = diasComAula[n] || 0;
+      const sel = n === selecionado;
+      const ehHoje = n === hojeDia;
+      semanaAtual.push({
+        n,
+        rotulo: nomesSemana[i],
+        valor: v ? Math.round(v / 10) * 10 : '',
+        borda: sel ? 'var(--color-accent-800)' : ehHoje ? 'var(--color-accent-700)' : v ? 'var(--color-accent)' : 'var(--color-divider)',
+        fundo: sel ? 'var(--color-accent-800)' : v ? 'var(--color-accent-200)' : 'transparent',
+        cor: sel ? 'var(--color-bg)' : v ? 'var(--color-accent-900)' : 'var(--color-neutral-500)',
+        cursor: 'pointer',
+        selecionar: () => patchUi({ diaSel: n }),
+        key: 'w' + n,
+      });
+    }
+    const temSemanaAnterior = inicioSemana - 7 + 6 >= 1;
+    const temSemanaSeguinte = inicioSemana + 7 <= 30;
+    let diasLivresSemana = 0;
+    let aulasSemana = 0;
+    for (let i = 0; i < 7; i++) {
+      const n = inicioSemana + i;
+      if (n < 1 || n > 30) continue;
+      const qtd = sessoesPorDia[n] || 0;
+      aulasSemana += qtd;
+      if (qtd === 0) diasLivresSemana++;
+    }
+
     const diasMes: {
       n: number | string;
       valor: number | string;
@@ -434,7 +487,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         key: 'd' + n,
       });
     }
-    const aulasDoDia: { hora: string; nome: string; nota: string; valor: string; key: string }[] = [];
+    const aulasDoDia: { hora: string; nome: string; nota: string; valor: string; key: string; statusClasse: string; statusTexto: string; toggle: () => void }[] = [];
     ativos.forEach((x) =>
       x.sessoes.forEach((s) => {
         if (parseInt(s.dia, 10) !== selecionado) return;
@@ -446,6 +499,16 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           nota: s.s === 'cancelada' ? 'cancelada — desconto no mês' : s.s === 'extra' ? 'extra — soma no mês' : x.plano,
           valor: (s.s === 'cancelada' ? '− ' : '') + brl(c.valorAula),
           key: x.id + '-' + s.id,
+          statusClasse: 'tag ' + (s.s === 'cancelada' ? 'tag-outline' : s.s === 'extra' ? 'tag-accent' : 'tag-neutral'),
+          statusTexto: s.s === 'cancelada' ? 'cancelada' : s.s === 'extra' ? 'extra' : 'feita',
+          toggle: () => {
+            const novo = s.s === 'feita' ? 'cancelada' : 'feita';
+            patchAlunoLocal(x.id, (a) => ({
+              ...a,
+              sessoes: a.sessoes.map((y) => (y.id === s.id ? { ...y, s: novo } : y)),
+            }));
+            db.setSessaoStatus(s.id, novo).catch(reportError);
+          },
         });
       }),
     );
@@ -655,13 +718,23 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         patchUi({ modal: null });
         showToast(a.nome + ' inativado. Histórico preservado.');
       },
-      semana: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'],
+      semana: nomesSemana,
       diasMes,
+      agendaView: S.agendaView,
+      verSemana: () => patchUi({ agendaView: 'semana' }),
+      verMes: () => patchUi({ agendaView: 'mes' }),
+      semanaAtual,
+      temSemanaAnterior,
+      temSemanaSeguinte,
+      semanaAnterior: () => patchUi({ diaSel: Math.max(1, selecionado - 7) }),
+      semanaSeguinte: () => patchUi({ diaSel: Math.min(30, selecionado + 7) }),
+      irParaHoje: () => patchUi({ diaSel: hojeDia }),
+      resumoSemana: aulasSemana + (aulasSemana === 1 ? ' aula' : ' aulas') + ' essa semana · ' + diasLivresSemana + (diasLivresSemana === 1 ? ' dia livre' : ' dias livres'),
       dia: {
         titulo: String(selecionado).padStart(2, '0') + ' de setembro',
         total: brl(totalDia),
         aulas: aulasDoDia,
-        rodape: aulasDoDia.length ? aulasDoDia.length + ' aula(s) neste dia' : 'Dia livre — nada lançado.',
+        rodape: aulasDoDia.length ? aulasDoDia.length + ' aula(s) neste dia — toque no status pra marcar feita/cancelada' : 'Dia livre — nada lançado.',
       },
       categorias: CATS.map((c) => ({
         nome: c,

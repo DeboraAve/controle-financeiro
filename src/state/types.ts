@@ -24,6 +24,7 @@ export interface UiState {
   msg: string;
   toast: string | null;
   diaSel: number | null;
+  agendaView: 'semana' | 'mes';
   editAlunoId: string | null;
   editAcademiaId: string | null;
   editDespesaId: string | null;
