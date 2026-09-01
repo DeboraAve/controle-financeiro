@@ -22,20 +22,19 @@ const initialUi: UiState = {
   toast: null,
   diaSel: null,
   agendaView: 'semana',
+  adminViewingUserId: null,
   editAlunoId: null,
   editAcademiaId: null,
   editDespesaId: null,
 };
 
-const emptyDomain: DomainState = {
-  alunos: [],
-  despesas: [],
-  academias: [],
-  grafico: 'Barras mensais',
-  metaMensal: 7500,
-  diasParaAtraso: 5,
-  semanasPorMes: 4,
-};
+interface DomainRaw {
+  alunos: Aluno[];
+  despesas: Despesa[];
+  academias: Academia[];
+}
+
+const emptyDomainRaw: DomainRaw = { alunos: [], despesas: [], academias: [] };
 
 export interface AlunoListItem {
   id: string;
@@ -143,8 +142,11 @@ function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number)
 }
 
 function useAppStateInternal(userId: string, isAdmin: boolean) {
-  const [domain, setDomain] = useState<DomainState>(emptyDomain);
+  const [domainRaw, setDomainRaw] = useState<DomainRaw>(emptyDomainRaw);
   const [donoPorAluno, setDonoPorAluno] = useState<Record<string, string>>({});
+  const [donoPorDespesa, setDonoPorDespesa] = useState<Record<string, string>>({});
+  const [donoPorAcademia, setDonoPorAcademia] = useState<Record<string, string>>({});
+  const [ajustesPorUser, setAjustesPorUser] = useState<Record<string, db.AjustesData>>({});
   const [profiles, setProfiles] = useState<db.ProfileRow[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<db.AvaliacaoRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,16 +172,15 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     db.fetchDomain(userId)
       .then((remote) => {
         if (!ativo) return;
-        setDomain({
+        setDomainRaw({
           alunos: remote.alunos,
           despesas: remote.despesas,
           academias: remote.academias,
-          grafico: remote.ajustes.grafico,
-          metaMensal: remote.ajustes.metaMensal,
-          diasParaAtraso: remote.ajustes.diasParaAtraso,
-          semanasPorMes: remote.ajustes.semanasPorMes,
         });
         setDonoPorAluno(remote.donoPorAluno);
+        setDonoPorDespesa(remote.donoPorDespesa);
+        setDonoPorAcademia(remote.donoPorAcademia);
+        setAjustesPorUser(remote.ajustesPorUser);
       })
       .catch((e) => reportError(e))
       .finally(() => {
@@ -205,13 +206,13 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
   }, [isAdmin, reportError]);
 
   const patchAlunoLocal = useCallback((id: string, fn: (a: Aluno) => Aluno) => {
-    setDomain((s) => ({
+    setDomainRaw((s) => ({
       ...s,
       alunos: s.alunos.map((a) => (a.id === id ? fn({ ...a, sessoes: a.sessoes.map((x) => ({ ...x })) }) : a)),
     }));
   }, []);
 
-  const atual = domain.alunos.find((a) => a.id === ui.alunoId);
+  const atual = domainRaw.alunos.find((a) => a.id === ui.alunoId);
 
   useEffect(() => {
     if (!atual) {
@@ -229,6 +230,37 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
 
   const vm = useMemo(() => {
     const S = ui;
+    const effectiveOwnerId = isAdmin ? S.adminViewingUserId : userId;
+    const ajustesAtuais = (effectiveOwnerId && ajustesPorUser[effectiveOwnerId]) || db.AJUSTES_PADRAO;
+    const domain: DomainState = effectiveOwnerId
+      ? {
+          alunos: domainRaw.alunos.filter((a) => donoPorAluno[a.id] === effectiveOwnerId),
+          despesas: domainRaw.despesas.filter((d) => donoPorDespesa[d.id] === effectiveOwnerId),
+          academias: domainRaw.academias.filter((ac) => donoPorAcademia[ac.id] === effectiveOwnerId),
+          grafico: ajustesAtuais.grafico,
+          metaMensal: ajustesAtuais.metaMensal,
+          diasParaAtraso: ajustesAtuais.diasParaAtraso,
+          semanasPorMes: ajustesAtuais.semanasPorMes,
+        }
+      : { alunos: [], despesas: [], academias: [], ...db.AJUSTES_PADRAO };
+    const isGestao = isAdmin && !S.adminViewingUserId;
+    const personaisResumo = profiles
+      .filter((p) => p.role === 'personal')
+      .map((p) => {
+        const seusAlunos = domainRaw.alunos.filter((a) => donoPorAluno[a.id] === p.id);
+        const ativosP = seusAlunos.filter((a) => a.status !== 'inativo');
+        const receita = ativosP.reduce((t, a) => t + calc(a).total, 0);
+        const atrasadosP = ativosP.filter((a) => a.pag === 'atrasado').length;
+        return {
+          id: p.id,
+          nome: p.nome || p.email,
+          email: p.email,
+          alunosAtivos: ativosP.length,
+          receitaFmt: brl(receita),
+          atrasados: atrasadosP,
+          entrar: () => patchUi({ adminViewingUserId: p.id, tab: 'painel' }),
+        };
+      });
     const meta = domain.metaMensal;
     const prazo = domain.diasParaAtraso;
     const vizNome = domain.grafico;
@@ -292,13 +324,6 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
 
     const academiaNome = (id: string | null) => domain.academias.find((ac) => ac.id === id)?.nome ?? null;
     const profilesPorId = new Map(profiles.map((p) => [p.id, p]));
-    const donoNome = (alunoId: string) => {
-      if (!isAdmin) return null;
-      const donoId = donoPorAluno[alunoId];
-      if (!donoId || donoId === userId) return null;
-      const p = profilesPorId.get(donoId);
-      return p?.nome || p?.email || null;
-    };
 
     const tagDe = (a: Aluno) =>
       a.status === 'ferias'
@@ -327,13 +352,12 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const listaAlunos: AlunoListItem[] = visiveis.map((a) => {
       const c = calcs.get(a.id)!;
       const nomeAcademia = academiaNome(a.academiaId);
-      const dono = donoNome(a.id);
       return {
         id: a.id,
         nome: a.nome,
         inicial: a.inicial,
         inicialCor: a.status === 'inativo' ? 'var(--color-neutral-500)' : 'var(--color-accent-700)',
-        sub: a.plano + ' · ' + a.horario + (nomeAcademia ? ' · ' + nomeAcademia : '') + (dono ? ' · personal: ' + dono : ''),
+        sub: a.plano + ' · ' + a.horario + (nomeAcademia ? ' · ' + nomeAcademia : ''),
         totalFmt: brl(c.total),
         ...tagDe(a),
         ...pagDe(a),
@@ -530,7 +554,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           showToast('Tem ' + nAtivos + ' aluno(s) em ' + ac.nome + ' — troque a academia deles antes de excluir.');
           return;
         }
-        setDomain((s) => ({ ...s, academias: s.academias.filter((x) => x.id !== ac.id) }));
+        setDomainRaw((s) => ({ ...s, academias: s.academias.filter((x) => x.id !== ac.id) }));
         db.deleteAcademiaRow(ac.id).catch(reportError);
         showToast(ac.nome + ' excluída.');
       },
@@ -578,6 +602,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     return {
       loading,
       isAdmin,
+      isGestao,
+      personaisResumo,
+      viewingComo: S.adminViewingUserId ? (profilesPorId.get(S.adminViewingUserId)?.nome || profilesPorId.get(S.adminViewingUserId)?.email || '') : null,
+      voltarGestao: () => patchUi({ adminViewingUserId: null, tab: 'painel' }),
       isPainel: S.tab === 'painel',
       isAlunos: S.tab === 'alunos',
       isDetalhe: S.tab === 'aluno' && !!a,
@@ -650,7 +678,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       addExtra: () => {
         if (!a) return;
         const dia = dia2(28);
-        db.insertSessaoExtra(a.id, dia)
+        db.insertSessaoExtra(a.id, dia, effectiveOwnerId || undefined)
           .then((nova) => patchAlunoLocal(a.id, (x) => ({ ...x, sessoes: [...x.sessoes, nova] })))
           .catch(reportError);
       },
@@ -752,9 +780,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           showToast('Coloca o valor da despesa.');
           return;
         }
-        db.insertDespesa({ dia: '28/09', cat: S.despCat, desc: S.despDesc || S.despCat, valor: v })
+        db.insertDespesa({ dia: '28/09', cat: S.despCat, desc: S.despDesc || S.despCat, valor: v }, effectiveOwnerId || undefined)
           .then((nova) => {
-            setDomain((s) => ({ ...s, despesas: [nova, ...s.despesas] }));
+            setDomainRaw((s) => ({ ...s, despesas: [nova, ...s.despesas] }));
             patchUi({ despValor: '', despDesc: '' });
             showToast('Despesa de ' + brl(v) + ' lançada.');
           })
@@ -784,14 +812,14 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         }
         if (S.editAcademiaId) {
           const id = S.editAcademiaId;
-          setDomain((s) => ({ ...s, academias: s.academias.map((ac) => (ac.id === id ? { ...ac, ...payload } : ac)) }));
+          setDomainRaw((s) => ({ ...s, academias: s.academias.map((ac) => (ac.id === id ? { ...ac, ...payload } : ac)) }));
           db.updateAcademiaRow(id, payload).catch(reportError);
           showToast(payload.nome + ' atualizada.');
           patchUi({ modal: 'academias', editAcademiaId: null });
         } else {
-          db.insertAcademia(payload)
+          db.insertAcademia(payload, effectiveOwnerId || undefined)
             .then((nova) => {
-              setDomain((s) => ({ ...s, academias: [...s.academias, nova] }));
+              setDomainRaw((s) => ({ ...s, academias: [...s.academias, nova] }));
               showToast(payload.nome + ' cadastrada.');
               patchUi({ modal: 'academias', editAcademiaId: null });
             })
@@ -827,9 +855,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           showToast(payload.nome + ' atualizado.');
           patchUi({ modal: null, editAlunoId: null });
         } else {
-          db.insertAluno(campos, criarSessoesPadrao(payload.aulasPrevistas).map((s) => ({ dia: s.dia, status: s.status })))
+          db.insertAluno(campos, criarSessoesPadrao(payload.aulasPrevistas).map((s) => ({ dia: s.dia, status: s.status })), effectiveOwnerId || undefined)
             .then((novo) => {
-              setDomain((s) => ({ ...s, alunos: [...s.alunos, novo] }));
+              setDomainRaw((s) => ({ ...s, alunos: [...s.alunos, novo] }));
               showToast(payload.nome + ' cadastrado.');
               patchUi({ modal: null, editAlunoId: null });
             })
@@ -842,7 +870,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         if (!a) return;
         const nome = a.nome;
         const id = a.id;
-        setDomain((s) => ({ ...s, alunos: s.alunos.filter((x) => x.id !== id) }));
+        setDomainRaw((s) => ({ ...s, alunos: s.alunos.filter((x) => x.id !== id) }));
         db.deleteAlunoRow(id).catch(reportError);
         patchUi({ modal: null, tab: 'alunos', alunoId: null });
         showToast(nome + ' excluído de vez.');
@@ -865,7 +893,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       salvarDespesa: (payload: DespesaFormPayload) => {
         if (!S.editDespesaId) return;
         const id = S.editDespesaId;
-        setDomain((s) => ({ ...s, despesas: s.despesas.map((d) => (d.id === id ? { ...d, ...payload } : d)) }));
+        setDomainRaw((s) => ({ ...s, despesas: s.despesas.map((d) => (d.id === id ? { ...d, ...payload } : d)) }));
         db.updateDespesaRow(id, payload).catch(reportError);
         patchUi({ modal: null, editDespesaId: null });
         showToast('Despesa atualizada.');
@@ -873,7 +901,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       excluirDespesa: () => {
         if (!S.editDespesaId) return;
         const id = S.editDespesaId;
-        setDomain((s) => ({ ...s, despesas: s.despesas.filter((d) => d.id !== id) }));
+        setDomainRaw((s) => ({ ...s, despesas: s.despesas.filter((d) => d.id !== id) }));
         db.deleteDespesaRow(id).catch(reportError);
         patchUi({ modal: null, editDespesaId: null });
         showToast('Despesa excluída.');
@@ -930,30 +958,38 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       },
       toast: S.toast,
       temToast: !!S.toast,
-      // settings (Ajustes)
+      // settings (Ajustes) — sempre do dono efetivo (o personal sendo visualizado, se admin)
       grafico: domain.grafico,
       setGrafico: (v: DomainState['grafico']) => {
-        setDomain((s) => ({ ...s, grafico: v }));
-        db.upsertAjustes(userId, { grafico: v }).catch(reportError);
+        if (!effectiveOwnerId) return;
+        const owner = effectiveOwnerId;
+        setAjustesPorUser((s) => ({ ...s, [owner]: { ...(s[owner] ?? db.AJUSTES_PADRAO), grafico: v } }));
+        db.upsertAjustes(owner, { grafico: v }).catch(reportError);
       },
       metaMensal: domain.metaMensal,
       setMetaMensal: (v: number) => {
-        setDomain((s) => ({ ...s, metaMensal: v }));
-        db.upsertAjustes(userId, { metaMensal: v }).catch(reportError);
+        if (!effectiveOwnerId) return;
+        const owner = effectiveOwnerId;
+        setAjustesPorUser((s) => ({ ...s, [owner]: { ...(s[owner] ?? db.AJUSTES_PADRAO), metaMensal: v } }));
+        db.upsertAjustes(owner, { metaMensal: v }).catch(reportError);
       },
       diasParaAtraso: domain.diasParaAtraso,
       setDiasParaAtraso: (v: number) => {
-        setDomain((s) => ({ ...s, diasParaAtraso: v }));
-        db.upsertAjustes(userId, { diasParaAtraso: v }).catch(reportError);
+        if (!effectiveOwnerId) return;
+        const owner = effectiveOwnerId;
+        setAjustesPorUser((s) => ({ ...s, [owner]: { ...(s[owner] ?? db.AJUSTES_PADRAO), diasParaAtraso: v } }));
+        db.upsertAjustes(owner, { diasParaAtraso: v }).catch(reportError);
       },
       semanasPorMes: domain.semanasPorMes,
       setSemanasPorMes: (v: number) => {
-        setDomain((s) => ({ ...s, semanasPorMes: v }));
-        db.upsertAjustes(userId, { semanasPorMes: v }).catch(reportError);
+        if (!effectiveOwnerId) return;
+        const owner = effectiveOwnerId;
+        setAjustesPorUser((s) => ({ ...s, [owner]: { ...(s[owner] ?? db.AJUSTES_PADRAO), semanasPorMes: v } }));
+        db.upsertAjustes(owner, { semanasPorMes: v }).catch(reportError);
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId, isAdmin, donoPorAluno, profiles, avaliacoes]);
+  }, [domainRaw, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId, isAdmin, donoPorAluno, donoPorDespesa, donoPorAcademia, ajustesPorUser, profiles, avaliacoes]);
 
   return vm;
 }

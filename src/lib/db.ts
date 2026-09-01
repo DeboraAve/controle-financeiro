@@ -3,6 +3,7 @@ import type { Academia, Aluno, Despesa, ModeloCobranca, PagStatus, Sessao, Sessa
 
 interface AcademiaRow {
   id: string;
+  user_id: string;
   nome: string;
   modelo: ModeloCobranca;
   valor_cobrado: number;
@@ -37,6 +38,7 @@ interface SessaoRow {
 
 interface DespesaRow {
   id: string;
+  user_id: string;
   dia: string;
   cat: string;
   descricao: string;
@@ -94,9 +96,13 @@ export interface RemoteDomain {
   academias: Academia[];
   alunos: Aluno[];
   despesas: Despesa[];
-  ajustes: AjustesData;
+  ajustesPorUser: Record<string, AjustesData>;
   donoPorAluno: Record<string, string>;
+  donoPorDespesa: Record<string, string>;
+  donoPorAcademia: Record<string, string>;
 }
+
+export const AJUSTES_PADRAO: AjustesData = { grafico: 'Barras mensais', metaMensal: 7500, diasParaAtraso: 5, semanasPorMes: 4 };
 
 export async function fetchDomain(userId: string): Promise<RemoteDomain> {
   const [academiasRes, alunosRes, sessoesRes, despesasRes, ajustesRes] = await Promise.all([
@@ -104,12 +110,13 @@ export async function fetchDomain(userId: string): Promise<RemoteDomain> {
     supabase.from('alunos').select('*').order('created_at'),
     supabase.from('sessoes').select('*'),
     supabase.from('despesas').select('*').order('dia', { ascending: false }),
-    supabase.from('ajustes').select('*').eq('user_id', userId).maybeSingle(),
+    supabase.from('ajustes').select('*'),
   ]);
   if (academiasRes.error) throw academiasRes.error;
   if (alunosRes.error) throw alunosRes.error;
   if (sessoesRes.error) throw sessoesRes.error;
   if (despesasRes.error) throw despesasRes.error;
+  if (ajustesRes.error) throw ajustesRes.error;
 
   const sessoesByAluno = new Map<string, Sessao[]>();
   for (const row of (sessoesRes.data ?? []) as SessaoRow[]) {
@@ -118,23 +125,23 @@ export async function fetchDomain(userId: string): Promise<RemoteDomain> {
     sessoesByAluno.set(row.aluno_id, list);
   }
 
-  const ajustesRow = ajustesRes.data as AjustesRow | null;
-  const ajustes: AjustesData = ajustesRow
-    ? {
-        grafico: ajustesRow.grafico as AjustesData['grafico'],
-        metaMensal: ajustesRow.meta_mensal,
-        diasParaAtraso: ajustesRow.dias_para_atraso,
-        semanasPorMes: ajustesRow.semanas_por_mes,
-      }
-    : { grafico: 'Barras mensais', metaMensal: 7500, diasParaAtraso: 5, semanasPorMes: 4 };
-
-  if (!ajustesRow) {
+  const ajustesPorUser: Record<string, AjustesData> = {};
+  for (const r of (ajustesRes.data ?? []) as AjustesRow[]) {
+    ajustesPorUser[r.user_id] = {
+      grafico: r.grafico as AjustesData['grafico'],
+      metaMensal: r.meta_mensal,
+      diasParaAtraso: r.dias_para_atraso,
+      semanasPorMes: r.semanas_por_mes,
+    };
+  }
+  if (!ajustesPorUser[userId]) {
+    ajustesPorUser[userId] = AJUSTES_PADRAO;
     await supabase.from('ajustes').insert({
       user_id: userId,
-      grafico: ajustes.grafico,
-      meta_mensal: ajustes.metaMensal,
-      dias_para_atraso: ajustes.diasParaAtraso,
-      semanas_por_mes: ajustes.semanasPorMes,
+      grafico: AJUSTES_PADRAO.grafico,
+      meta_mensal: AJUSTES_PADRAO.metaMensal,
+      dias_para_atraso: AJUSTES_PADRAO.diasParaAtraso,
+      semanas_por_mes: AJUSTES_PADRAO.semanasPorMes,
     });
   }
 
@@ -142,20 +149,37 @@ export async function fetchDomain(userId: string): Promise<RemoteDomain> {
   const donoPorAluno: Record<string, string> = {};
   for (const r of alunoRows) donoPorAluno[r.id] = r.user_id;
 
+  const academiaRows = (academiasRes.data ?? []) as AcademiaRow[];
+  const donoPorAcademia: Record<string, string> = {};
+  for (const r of academiaRows) donoPorAcademia[r.id] = r.user_id;
+
+  const despesaRows = (despesasRes.data ?? []) as DespesaRow[];
+  const donoPorDespesa: Record<string, string> = {};
+  for (const r of despesaRows) donoPorDespesa[r.id] = r.user_id;
+
   return {
-    academias: ((academiasRes.data ?? []) as AcademiaRow[]).map(academiaFromRow),
+    academias: academiaRows.map(academiaFromRow),
     alunos: alunoRows.map((r) => alunoFromRow(r, sessoesByAluno.get(r.id) ?? [])),
-    despesas: ((despesasRes.data ?? []) as DespesaRow[]).map(despesaFromRow),
-    ajustes,
+    despesas: despesaRows.map(despesaFromRow),
+    ajustesPorUser,
     donoPorAluno,
+    donoPorDespesa,
+    donoPorAcademia,
   };
 }
 
 // ---- academias ----
-export async function insertAcademia(payload: { nome: string; modelo: ModeloCobranca; valorCobrado: number; custoPorTrecho: number; viagensPorSemana: number }): Promise<Academia> {
+export async function insertAcademia(payload: { nome: string; modelo: ModeloCobranca; valorCobrado: number; custoPorTrecho: number; viagensPorSemana: number }, ownerId?: string): Promise<Academia> {
   const { data, error } = await supabase
     .from('academias')
-    .insert({ nome: payload.nome, modelo: payload.modelo, valor_cobrado: payload.valorCobrado, custo_por_trecho: payload.custoPorTrecho, viagens_por_semana: payload.viagensPorSemana })
+    .insert({
+      nome: payload.nome,
+      modelo: payload.modelo,
+      valor_cobrado: payload.valorCobrado,
+      custo_por_trecho: payload.custoPorTrecho,
+      viagens_por_semana: payload.viagensPorSemana,
+      ...(ownerId ? { user_id: ownerId } : {}),
+    })
     .select()
     .single();
   if (error) throw error;
@@ -188,7 +212,7 @@ export interface AlunoInsertPayload {
   inicial: string;
 }
 
-export async function insertAluno(payload: AlunoInsertPayload, sessoesIniciais: { dia: string; status: SessaoStatus }[]): Promise<Aluno> {
+export async function insertAluno(payload: AlunoInsertPayload, sessoesIniciais: { dia: string; status: SessaoStatus }[], ownerId?: string): Promise<Aluno> {
   const { data, error } = await supabase
     .from('alunos')
     .insert({
@@ -204,6 +228,7 @@ export async function insertAluno(payload: AlunoInsertPayload, sessoesIniciais: 
       status: 'ativo',
       pag: 'aberto',
       ferias: 0,
+      ...(ownerId ? { user_id: ownerId } : {}),
     })
     .select()
     .single();
@@ -214,7 +239,7 @@ export async function insertAluno(payload: AlunoInsertPayload, sessoesIniciais: 
   if (sessoesIniciais.length) {
     const { data: sData, error: sError } = await supabase
       .from('sessoes')
-      .insert(sessoesIniciais.map((s) => ({ aluno_id: row.id, dia: s.dia, status: s.status })))
+      .insert(sessoesIniciais.map((s) => ({ aluno_id: row.id, dia: s.dia, status: s.status, ...(ownerId ? { user_id: ownerId } : {}) })))
       .select();
     if (sError) throw sError;
     sessoes = ((sData ?? []) as SessaoRow[]).map(sessaoFromRow);
@@ -263,8 +288,8 @@ export async function setSessaoStatus(id: string, status: SessaoStatus): Promise
   if (error) throw error;
 }
 
-export async function insertSessaoExtra(alunoId: string, dia: string): Promise<Sessao> {
-  const { data, error } = await supabase.from('sessoes').insert({ aluno_id: alunoId, dia, status: 'extra' }).select().single();
+export async function insertSessaoExtra(alunoId: string, dia: string, ownerId?: string): Promise<Sessao> {
+  const { data, error } = await supabase.from('sessoes').insert({ aluno_id: alunoId, dia, status: 'extra', ...(ownerId ? { user_id: ownerId } : {}) }).select().single();
   if (error) throw error;
   return sessaoFromRow(data as SessaoRow);
 }
@@ -288,8 +313,8 @@ export interface DespesaPayload {
   valor: number;
 }
 
-export async function insertDespesa(payload: DespesaPayload): Promise<Despesa> {
-  const { data, error } = await supabase.from('despesas').insert({ dia: payload.dia, cat: payload.cat, descricao: payload.desc, valor: payload.valor }).select().single();
+export async function insertDespesa(payload: DespesaPayload, ownerId?: string): Promise<Despesa> {
+  const { data, error } = await supabase.from('despesas').insert({ dia: payload.dia, cat: payload.cat, descricao: payload.desc, valor: payload.valor, ...(ownerId ? { user_id: ownerId } : {}) }).select().single();
   if (error) throw error;
   return despesaFromRow(data as DespesaRow);
 }

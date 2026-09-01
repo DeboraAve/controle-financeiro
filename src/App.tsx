@@ -19,9 +19,11 @@ import { AlunoDetalhe } from './screens/AlunoDetalhe';
 import { Agenda } from './screens/Agenda';
 import { Caixa } from './screens/Caixa';
 import { Cobranca } from './screens/Cobranca';
+import { GestaoPersonais } from './screens/GestaoPersonais';
 
 function Screen() {
-  const { isPainel, isAlunos, isDetalhe, isAgenda, isCaixa, isCobranca } = useApp();
+  const { isGestao, isPainel, isAlunos, isDetalhe, isAgenda, isCaixa, isCobranca } = useApp();
+  if (isGestao) return <GestaoPersonais />;
   if (isPainel) return <Painel />;
   if (isDetalhe) return <AlunoDetalhe />;
   if (isAlunos) return <Alunos />;
@@ -29,6 +31,17 @@ function Screen() {
   if (isCaixa) return <Caixa />;
   if (isCobranca) return <Cobranca />;
   return null;
+}
+
+function ViewingBanner() {
+  const { viewingComo, voltarGestao } = useApp();
+  if (!viewingComo) return null;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-accent-100)', color: 'var(--color-accent-900)', padding: '8px 14px', fontSize: 12, borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-3)' }}>
+      <span>Vendo a conta de <strong>{viewingComo}</strong></span>
+      <button className="btn btn-ghost" style={{ padding: 0, fontSize: 12 }} onClick={voltarGestao}>← voltar à gestão</button>
+    </div>
+  );
 }
 
 function Carregando() {
@@ -40,16 +53,17 @@ function Carregando() {
 }
 
 function Shell() {
-  const { loading } = useApp();
+  const { loading, isGestao } = useApp();
   if (loading) return <Carregando />;
   return (
     <div className="app-shell">
-      <SideNav />
+      {!isGestao && <SideNav />}
       <div className="app-main">
         <div className="app-content">
+          <ViewingBanner />
           <Screen />
         </div>
-        <TabBar />
+        {!isGestao && <TabBar />}
       </div>
       <Toast />
       <FeriasModal />
