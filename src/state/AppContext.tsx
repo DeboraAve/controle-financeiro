@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
-import { ACADEMIA_MODELOS, CATS, criarSessoesPadrao, dia2, iniciais } from '../data/seed';
+import { ACADEMIA_MODELOS, CATS, dia2, iniciais } from '../data/seed';
 import { brl, calc } from '../lib/calc';
 import { calcularAvaliacao, calcularRcq } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
@@ -90,7 +90,9 @@ export interface AlunoFormPayload {
   academiaId: string | null;
   planoTipo: 'Pacote' | 'Mensalidade fixa';
   valorPacote: number;
+  diasSemana: number[];
   aulasPrevistas: number;
+  horaTexto: string;
   horario: string;
   fone: string;
   desde: string;
@@ -875,26 +877,48 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           showToast('Dá um nome pro aluno.');
           return;
         }
-        const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + payload.aulasPrevistas + ' aulas' : 'Mensalidade fixa';
-        const campos = {
-          nome: payload.nome,
-          inicial: iniciais(payload.nome),
-          academiaId: payload.academiaId,
-          plano,
-          base: payload.valorPacote,
-          previstas: payload.aulasPrevistas,
-          horario: payload.horario,
-          fone: payload.fone,
-          desde: payload.desde,
-        };
         if (S.editAlunoId) {
           const id = S.editAlunoId;
+          const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + payload.aulasPrevistas + ' aulas' : 'Mensalidade fixa';
+          const campos = {
+            nome: payload.nome,
+            inicial: iniciais(payload.nome),
+            academiaId: payload.academiaId,
+            plano,
+            base: payload.valorPacote,
+            previstas: payload.aulasPrevistas,
+            horario: payload.horario,
+            fone: payload.fone,
+            desde: payload.desde,
+          };
           patchAlunoLocal(id, (x) => ({ ...x, ...campos }));
           db.updateAlunoFields(id, campos).catch(reportError);
           showToast(payload.nome + ' atualizado.');
           patchUi({ modal: null, editAlunoId: null });
         } else {
-          db.insertAluno(campos, criarSessoesPadrao(payload.aulasPrevistas).map((s) => ({ dia: s.dia, status: s.status })), effectiveOwnerId || undefined)
+          if (payload.diasSemana.length === 0) {
+            showToast('Marca pelo menos um dia da semana das aulas.');
+            return;
+          }
+          const diasGerados: number[] = [];
+          for (let n = 1; n <= 30; n++) if (payload.diasSemana.includes(diaSemanaDe(n))) diasGerados.push(n);
+          const previstas = Math.max(1, diasGerados.length);
+          const diasOrdenados = [...payload.diasSemana].sort((x, y) => x - y);
+          const nomesDias = diasOrdenados.map((d) => nomesSemana[d].charAt(0).toUpperCase() + nomesSemana[d].slice(1)).join('/');
+          const horario = nomesDias + (payload.horaTexto.trim() ? ' · ' + payload.horaTexto.trim() : '');
+          const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + previstas + ' aulas' : 'Mensalidade fixa';
+          const campos = {
+            nome: payload.nome,
+            inicial: iniciais(payload.nome),
+            academiaId: payload.academiaId,
+            plano,
+            base: payload.valorPacote,
+            previstas,
+            horario,
+            fone: payload.fone,
+            desde: payload.desde,
+          };
+          db.insertAluno(campos, diasGerados.map((n) => ({ dia: dia2(n), status: 'feita' })), effectiveOwnerId || undefined)
             .then((novo) => {
               setDomainRaw((s) => ({ ...s, alunos: [...s.alunos, novo] }));
               showToast(payload.nome + ' cadastrado.');
