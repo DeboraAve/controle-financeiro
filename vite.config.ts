@@ -28,6 +28,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // jsPDF's optional .html() renderer (html2canvas/dompurify/canvg) — never called,
+        // dynamically imported only when a PDF is actually generated, so it shouldn't be
+        // downloaded upfront for every install.
+        globIgnores: ['**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js'],
       },
     }),
   ],

@@ -23,6 +23,7 @@ const initialUi: UiState = {
   diaSel: null,
   agendaView: 'semana',
   adminViewingUserId: null,
+  avaliacaoDetalheId: null,
   editAlunoId: null,
   editAcademiaId: null,
   editDespesaId: null,
@@ -605,40 +606,88 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const editandoAluno = domain.alunos.find((al) => al.id === S.editAlunoId) ?? null;
     const editandoDespesa = domain.despesas.find((d) => d.id === S.editDespesaId) ?? null;
 
-    const avaliacoesFmt = avaliacoes.map((r) => {
-      const res = calcularAvaliacao({
-        peso: r.peso,
-        estatura: r.estatura,
-        idade: r.idade,
-        sexo: r.sexo,
-        dobraPeitoral: r.dobra_peitoral,
-        dobraAxilar: r.dobra_axilar,
-        dobraTriceps: r.dobra_triceps,
-        dobraSubescapular: r.dobra_subescapular,
-        dobraAbdominal: r.dobra_abdominal,
-        dobraSuprailiaca: r.dobra_suprailiaca,
-        dobraCoxa: r.dobra_coxa,
+    const campo = (label: string, v: number | null, unidade: string) => (v != null ? { label, valor: v.toLocaleString('pt-BR') + ' ' + unidade } : null);
+    const avaliacoesFmt = avaliacoes
+      .map((r) => {
+        const res = calcularAvaliacao({
+          peso: r.peso,
+          estatura: r.estatura,
+          idade: r.idade,
+          sexo: r.sexo,
+          dobraPeitoral: r.dobra_peitoral,
+          dobraAxilar: r.dobra_axilar,
+          dobraTriceps: r.dobra_triceps,
+          dobraSubescapular: r.dobra_subescapular,
+          dobraAbdominal: r.dobra_abdominal,
+          dobraSuprailiaca: r.dobra_suprailiaca,
+          dobraCoxa: r.dobra_coxa,
+        });
+        const rcq = calcularRcq(r.sexo, r.perim_cintura, r.perim_quadril);
+        const percentualGorduraFmt = res.percentualGordura != null ? res.percentualGordura.toFixed(1) + '%' : '—';
+        const massaMagraFmt = res.massaMagra != null ? res.massaMagra.toFixed(1) + ' kg' : '—';
+        const rcqFmt = rcq ? rcq.valor.toFixed(2) + ' (' + rcq.classe + ')' : null;
+        const dobras = [
+          campo('Peitoral', r.dobra_peitoral, 'mm'),
+          campo('Axilar média', r.dobra_axilar, 'mm'),
+          campo('Tríceps', r.dobra_triceps, 'mm'),
+          campo('Subescapular', r.dobra_subescapular, 'mm'),
+          campo('Abdominal', r.dobra_abdominal, 'mm'),
+          campo('Suprailíaca', r.dobra_suprailiaca, 'mm'),
+          campo('Coxa', r.dobra_coxa, 'mm'),
+          campo('Bíceps', r.dobra_biceps, 'mm'),
+          campo('Panturrilha', r.dobra_panturrilha, 'mm'),
+        ].filter((c): c is { label: string; valor: string } => c != null);
+        const perimetria = [
+          campo('Pescoço', r.perim_pescoco, 'cm'),
+          campo('Tórax', r.perim_torax, 'cm'),
+          campo('Cintura', r.perim_cintura, 'cm'),
+          campo('Abdômen', r.perim_abdomen, 'cm'),
+          campo('Quadril', r.perim_quadril, 'cm'),
+        ].filter((c): c is { label: string; valor: string } => c != null);
+        return {
+          id: r.id,
+          data: r.data,
+          peso: r.peso,
+          pesoFmt: r.peso.toLocaleString('pt-BR') + ' kg',
+          imc: res.imc,
+          imcFmt: res.imc.toFixed(1),
+          imcClasse: res.imcClasse,
+          risco: res.risco,
+          temDobras: res.temDobras,
+          percentualGordura: res.percentualGordura,
+          percentualGorduraFmt,
+          massaMagraFmt,
+          rcqFmt,
+          observacoes: r.observacoes,
+          excluir: () => {
+            setAvaliacoes((s) => s.filter((x) => x.id !== r.id));
+            db.deleteAvaliacaoRow(r.id).catch(reportError);
+            showToast('Avaliação excluída.');
+          },
+          abrirDetalhe: () => patchUi({ modal: 'avaliacaoDetalhe', avaliacaoDetalheId: r.id }),
+          pdfDados: {
+            alunoNome: a?.nome ?? '',
+            data: r.data,
+            resumoLinha: r.idade + ' anos · ' + (r.sexo === 'M' ? 'masculino' : 'feminino'),
+            imcFmt: res.imc.toFixed(1),
+            imcClasse: res.imcClasse,
+            risco: res.risco,
+            percentualGorduraFmt,
+            pesoGordoFmt: res.pesoGordo != null ? res.pesoGordo.toFixed(1) + ' kg' : '—',
+            massaMagraFmt,
+            rcqFmt,
+            gerais: [
+              { label: 'Peso', valor: r.peso.toLocaleString('pt-BR') + ' kg' },
+              { label: 'Estatura', valor: Math.round(r.estatura * 100) + ' cm' },
+              { label: 'Idade', valor: r.idade + ' anos' },
+            ],
+            dobras,
+            perimetria,
+            observacoes: r.observacoes,
+          },
+        };
       });
-      const rcq = calcularRcq(r.sexo, r.perim_cintura, r.perim_quadril);
-      return {
-        id: r.id,
-        data: r.data,
-        pesoFmt: r.peso.toLocaleString('pt-BR') + ' kg',
-        imcFmt: res.imc.toFixed(1),
-        imcClasse: res.imcClasse,
-        risco: res.risco,
-        temDobras: res.temDobras,
-        percentualGorduraFmt: res.percentualGordura != null ? res.percentualGordura.toFixed(1) + '%' : '—',
-        massaMagraFmt: res.massaMagra != null ? res.massaMagra.toFixed(1) + ' kg' : '—',
-        rcqFmt: rcq ? rcq.valor.toFixed(2) + ' (' + rcq.classe + ')' : null,
-        observacoes: r.observacoes,
-        excluir: () => {
-          setAvaliacoes((s) => s.filter((x) => x.id !== r.id));
-          db.deleteAvaliacaoRow(r.id).catch(reportError);
-          showToast('Avaliação excluída.');
-        },
-      };
-    });
+    const avaliacoesEvolucao = [...avaliacoesFmt].reverse();
 
     return {
       loading,
@@ -939,8 +988,11 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         showToast(nome + ' excluído de vez.');
       },
       avaliacoes: avaliacoesFmt,
+      avaliacoesEvolucao,
       modalAvaliacaoForm: S.modal === 'avaliacaoForm',
       abrirNovaAvaliacao: () => patchUi({ modal: 'avaliacaoForm' }),
+      modalAvaliacaoDetalhe: S.modal === 'avaliacaoDetalhe',
+      avaliacaoDetalheAtual: avaliacoesFmt.find((av) => av.id === S.avaliacaoDetalheId) ?? null,
       salvarAvaliacao: (payload: AvaliacaoFormPayload) => {
         if (!a) return;
         db.insertAvaliacao(a.id, payload)

@@ -12,6 +12,7 @@ import { AcademiasModal } from './components/modals/AcademiasModal';
 import { AcademiaFormModal } from './components/modals/AcademiaFormModal';
 import { DespesaFormModal } from './components/modals/DespesaFormModal';
 import { AvaliacaoFormModal } from './components/modals/AvaliacaoFormModal';
+import { AvaliacaoDetalheModal } from './components/modals/AvaliacaoDetalheModal';
 import { Auth } from './screens/Auth';
 import { Painel } from './screens/Painel';
 import { Alunos } from './screens/Alunos';
@@ -76,6 +77,7 @@ function Shell() {
       <AcademiaFormModal />
       <DespesaFormModal />
       <AvaliacaoFormModal />
+      <AvaliacaoDetalheModal />
     </div>
   );
 }

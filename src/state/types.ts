@@ -26,6 +26,7 @@ export interface UiState {
   diaSel: number | null;
   agendaView: 'semana' | 'mes';
   adminViewingUserId: string | null;
+  avaliacaoDetalheId: string | null;
   editAlunoId: string | null;
   editAcademiaId: string | null;
   editDespesaId: string | null;

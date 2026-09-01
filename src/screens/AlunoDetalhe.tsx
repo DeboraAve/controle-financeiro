@@ -1,9 +1,15 @@
 import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
+import { EvolucaoChart } from '../components/EvolucaoChart';
 
 export function AlunoDetalhe() {
-  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, abrirNovaAvaliacao } = useApp();
+  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao } = useApp();
   if (!aluno) return null;
+
+  const pontosPeso = avaliacoesEvolucao.map((av) => ({ rotulo: av.data, valor: av.peso, valorFmt: av.pesoFmt }));
+  const pontosGordura = avaliacoesEvolucao
+    .filter((av) => av.percentualGordura != null)
+    .map((av) => ({ rotulo: av.data, valor: av.percentualGordura as number, valorFmt: av.percentualGorduraFmt }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -64,16 +70,28 @@ export function AlunoDetalhe() {
         <button className="btn btn-ghost" style={{ alignSelf: 'center', fontSize: 12 }} onClick={abrirExcluirAluno}>Excluir aluno de vez</button>
       </div>
 
+      {(pontosPeso.length > 1 || pontosGordura.length > 1) && (
+        <BlueprintCard style={{ gap: 'var(--space-3)' }}>
+          <div className="card-kicker" style={{ marginBottom: -4 }}>Evolução</div>
+          {pontosPeso.length > 1 && <EvolucaoChart titulo="Peso" pontos={pontosPeso} />}
+          {pontosGordura.length > 1 && <EvolucaoChart titulo="% de gordura" pontos={pontosGordura} />}
+        </BlueprintCard>
+      )}
+
       <BlueprintCard style={{ gap: 'var(--space-2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <div className="card-kicker">Avaliação física</div>
           <button className="btn btn-ghost" style={{ padding: 0, fontSize: 12 }} onClick={abrirNovaAvaliacao}>+ Nova</button>
         </div>
         {avaliacoes.map((av) => (
-          <div key={av.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 8 }}>
+          <div
+            key={av.id}
+            onClick={av.abrirDetalhe}
+            style={{ display: 'flex', flexDirection: 'column', gap: 3, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 8, cursor: 'pointer' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <span style={{ fontFamily: 'var(--font-heading)', fontSize: 15 }}>{av.data}</span>
-              <button className="btn btn-ghost" style={{ padding: 0, fontSize: 11 }} onClick={av.excluir}>excluir</button>
+              <button className="btn btn-ghost" style={{ padding: 0, fontSize: 11 }} onClick={(e) => { e.stopPropagation(); av.excluir(); }}>excluir</button>
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}>
               {av.pesoFmt} · IMC {av.imcFmt} ({av.imcClasse}) · {av.risco}
@@ -84,6 +102,7 @@ export function AlunoDetalhe() {
           </div>
         ))}
         {avaliacoes.length === 0 && <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhuma avaliação registrada ainda.</div>}
+        {avaliacoes.length > 0 && <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>toque numa avaliação pra ver o detalhamento e enviar</div>}
       </BlueprintCard>
 
       <div className="card" style={{ gap: 'var(--space-2)' }}>

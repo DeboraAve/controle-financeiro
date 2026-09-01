@@ -64,4 +64,5 @@ export type Modal =
   | 'academiaForm'
   | 'despesaForm'
   | 'avaliacaoForm'
+  | 'avaliacaoDetalhe'
   | null;
