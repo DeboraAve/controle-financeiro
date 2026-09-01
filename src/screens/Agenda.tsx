@@ -3,7 +3,7 @@ import { BlueprintCard } from '../components/BlueprintCard';
 
 export function Agenda() {
   const {
-    semana, diasMes, dia, agendaView, verSemana, verMes,
+    diasMes, dia, agendaView, verSemana, verMes,
     semanaAtual, temSemanaAnterior, temSemanaSeguinte, semanaAnterior, semanaSeguinte, irParaHoje, resumoSemana,
   } = useApp();
 
@@ -45,9 +45,6 @@ export function Agenda() {
         </BlueprintCard>
       ) : (
         <BlueprintCard style={{ gap: 'var(--space-2)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, fontSize: 9, color: 'var(--color-neutral-600)', textAlign: 'center' }}>
-            {semana.map((d) => <div key={d}>{d}</div>)}
-          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3 }}>
             {diasMes.map((d) => (
               <div
@@ -55,6 +52,7 @@ export function Agenda() {
                 onClick={d.selecionar}
                 style={{ aspectRatio: '1', border: `1px solid ${d.borda}`, background: d.fundo, color: d.cor, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, cursor: d.cursor }}
               >
+                {d.rotulo && <div style={{ fontSize: 7, textTransform: 'uppercase', letterSpacing: '.04em', opacity: 0.75 }}>{d.rotulo}</div>}
                 <div style={{ fontFamily: 'var(--font-heading)', fontSize: 12 }}>{d.n}</div>
                 <div style={{ fontSize: 7, letterSpacing: '.02em' }}>{d.valor}</div>
               </div>

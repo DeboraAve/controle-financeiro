@@ -523,6 +523,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
 
     const diasMes: {
       n: number | string;
+      rotulo: string;
       valor: number | string;
       borda: string;
       fundo: string;
@@ -532,13 +533,14 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       key: string;
     }[] = [];
     for (let i = 0; i < 2; i++) {
-      diasMes.push({ n: '', valor: '', borda: 'transparent', fundo: 'transparent', cor: 'transparent', cursor: 'default', selecionar: () => {}, key: 'pad' + i });
+      diasMes.push({ n: '', rotulo: '', valor: '', borda: 'transparent', fundo: 'transparent', cor: 'transparent', cursor: 'default', selecionar: () => {}, key: 'pad' + i });
     }
     for (let n = 1; n <= 30; n++) {
       const v = diasComAula[n] || 0;
       const sel = n === selecionado;
       diasMes.push({
         n,
+        rotulo: nomesSemana[diaSemanaDe(n)],
         valor: v ? Math.round(v / 10) * 10 : '',
         borda: sel ? 'var(--color-accent-800)' : v ? 'var(--color-accent)' : 'var(--color-divider)',
         fundo: sel ? 'var(--color-accent-800)' : v ? 'var(--color-accent-200)' : 'transparent',
