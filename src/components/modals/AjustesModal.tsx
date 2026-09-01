@@ -6,7 +6,7 @@ const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as 
 
 export function AjustesModal() {
   const { modalAjustes, fecharModal, grafico, setGrafico, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso } = useApp();
-  const { session, signOut } = useAuth();
+  const { session, isAdmin, signOut } = useAuth();
   if (!modalAjustes) return null;
   return (
     <div className="dialog-backdrop" style={{ zIndex: 80 }}>
@@ -45,8 +45,9 @@ export function AjustesModal() {
             onChange={(e) => setDiasParaAtraso(Math.max(1, parseInt(e.target.value || '1', 10)))}
           />
         </div>
-        <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', borderTop: '1px solid var(--color-divider)', paddingTop: 8 }}>
+        <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', borderTop: '1px solid var(--color-divider)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
           Logado como {session?.user.email}
+          <span className={isAdmin ? 'tag tag-accent' : 'tag tag-neutral'} style={{ fontSize: 9 }}>{isAdmin ? 'admin' : 'personal'}</span>
         </div>
         <div className="dialog-actions" style={{ justifyContent: 'space-between' }}>
           <button className="btn btn-secondary" onClick={signOut}>Sair da conta</button>

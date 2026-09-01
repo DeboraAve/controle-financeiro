@@ -834,10 +834,17 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       enviarCobranca: () => {
         if (S.cobrandoId == null) return;
         const id = S.cobrandoId;
+        const digits = cobrando.fone.replace(/\D/g, '');
+        if (!digits) {
+          showToast('Cadastra o telefone de ' + cobrando.nome.split(' ')[0] + ' pra poder cobrar por WhatsApp.');
+          return;
+        }
+        const comDdi = digits.length <= 11 ? '55' + digits : digits;
+        window.open('https://wa.me/' + comDdi + '?text=' + encodeURIComponent(S.msg), '_blank');
         patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
         db.setAlunoPag(id, 'cobrado').catch(reportError);
         patchUi({ modal: null });
-        showToast('Mensagem enviada para ' + cobrando.nome.split(' ')[0] + '.');
+        showToast('WhatsApp aberto pra ' + cobrando.nome.split(' ')[0] + '.');
       },
       toast: S.toast,
       temToast: !!S.toast,

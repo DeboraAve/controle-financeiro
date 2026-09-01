@@ -156,6 +156,9 @@ export function AvaliacaoFormModal() {
           </div>
         )}
 
+        {!preview && (
+          <div style={{ fontSize: 11, color: 'var(--color-accent-700)' }}>Preenche peso, estatura e idade pra liberar o salvar.</div>
+        )}
         <div className="dialog-actions">
           <button className="btn btn-secondary" onClick={fecharModal}>Cancelar</button>
           <button className="btn btn-primary" style={{ marginTop: 0 }} onClick={salvar} disabled={!preview}>Salvar avaliação</button>
