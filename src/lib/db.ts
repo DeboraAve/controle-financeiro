@@ -1,0 +1,309 @@
+import { supabase } from './supabaseClient';
+import type { Academia, Aluno, Despesa, ModeloCobranca, PagStatus, Sessao, SessaoStatus, StatusAluno } from '../data/model';
+
+interface AcademiaRow {
+  id: string;
+  nome: string;
+  modelo: ModeloCobranca;
+  valor_cobrado: number;
+  custo_por_trecho: number;
+  viagens_por_semana: number;
+}
+
+interface AlunoRow {
+  id: string;
+  academia_id: string | null;
+  nome: string;
+  inicial: string;
+  plano: string;
+  base: number;
+  previstas: number;
+  status: StatusAluno;
+  pag: PagStatus;
+  atraso: number | null;
+  horario: string;
+  desde: string;
+  fone: string;
+  ferias: number;
+}
+
+interface SessaoRow {
+  id: string;
+  aluno_id: string;
+  dia: string;
+  status: SessaoStatus;
+}
+
+interface DespesaRow {
+  id: string;
+  dia: string;
+  cat: string;
+  descricao: string;
+  valor: number;
+}
+
+interface AjustesRow {
+  user_id: string;
+  grafico: string;
+  meta_mensal: number;
+  dias_para_atraso: number;
+  semanas_por_mes: number;
+}
+
+function academiaFromRow(r: AcademiaRow): Academia {
+  return { id: r.id, nome: r.nome, modelo: r.modelo, valorCobrado: r.valor_cobrado, custoPorTrecho: r.custo_por_trecho, viagensPorSemana: r.viagens_por_semana };
+}
+
+function sessaoFromRow(r: SessaoRow): Sessao {
+  return { id: r.id, dia: r.dia, s: r.status };
+}
+
+function alunoFromRow(r: AlunoRow, sessoes: Sessao[]): Aluno {
+  return {
+    id: r.id,
+    academiaId: r.academia_id,
+    nome: r.nome,
+    inicial: r.inicial,
+    plano: r.plano,
+    base: r.base,
+    previstas: r.previstas,
+    status: r.status,
+    pag: r.pag,
+    atraso: r.atraso ?? undefined,
+    horario: r.horario,
+    desde: r.desde,
+    fone: r.fone,
+    ferias: r.ferias,
+    sessoes,
+  };
+}
+
+function despesaFromRow(r: DespesaRow): Despesa {
+  return { id: r.id, dia: r.dia, cat: r.cat, desc: r.descricao, valor: r.valor };
+}
+
+export interface AjustesData {
+  grafico: 'Barras mensais' | 'Linha de caixa' | 'Anel de recebimento';
+  metaMensal: number;
+  diasParaAtraso: number;
+  semanasPorMes: number;
+}
+
+export interface RemoteDomain {
+  academias: Academia[];
+  alunos: Aluno[];
+  despesas: Despesa[];
+  ajustes: AjustesData;
+}
+
+export async function fetchDomain(userId: string): Promise<RemoteDomain> {
+  const [academiasRes, alunosRes, sessoesRes, despesasRes, ajustesRes] = await Promise.all([
+    supabase.from('academias').select('*').order('created_at'),
+    supabase.from('alunos').select('*').order('created_at'),
+    supabase.from('sessoes').select('*'),
+    supabase.from('despesas').select('*').order('dia', { ascending: false }),
+    supabase.from('ajustes').select('*').eq('user_id', userId).maybeSingle(),
+  ]);
+  if (academiasRes.error) throw academiasRes.error;
+  if (alunosRes.error) throw alunosRes.error;
+  if (sessoesRes.error) throw sessoesRes.error;
+  if (despesasRes.error) throw despesasRes.error;
+
+  const sessoesByAluno = new Map<string, Sessao[]>();
+  for (const row of (sessoesRes.data ?? []) as SessaoRow[]) {
+    const list = sessoesByAluno.get(row.aluno_id) ?? [];
+    list.push(sessaoFromRow(row));
+    sessoesByAluno.set(row.aluno_id, list);
+  }
+
+  const ajustesRow = ajustesRes.data as AjustesRow | null;
+  const ajustes: AjustesData = ajustesRow
+    ? {
+        grafico: ajustesRow.grafico as AjustesData['grafico'],
+        metaMensal: ajustesRow.meta_mensal,
+        diasParaAtraso: ajustesRow.dias_para_atraso,
+        semanasPorMes: ajustesRow.semanas_por_mes,
+      }
+    : { grafico: 'Barras mensais', metaMensal: 7500, diasParaAtraso: 5, semanasPorMes: 4 };
+
+  if (!ajustesRow) {
+    await supabase.from('ajustes').insert({
+      user_id: userId,
+      grafico: ajustes.grafico,
+      meta_mensal: ajustes.metaMensal,
+      dias_para_atraso: ajustes.diasParaAtraso,
+      semanas_por_mes: ajustes.semanasPorMes,
+    });
+  }
+
+  return {
+    academias: ((academiasRes.data ?? []) as AcademiaRow[]).map(academiaFromRow),
+    alunos: ((alunosRes.data ?? []) as AlunoRow[]).map((r) => alunoFromRow(r, sessoesByAluno.get(r.id) ?? [])),
+    despesas: ((despesasRes.data ?? []) as DespesaRow[]).map(despesaFromRow),
+    ajustes,
+  };
+}
+
+// ---- academias ----
+export async function insertAcademia(payload: { nome: string; modelo: ModeloCobranca; valorCobrado: number; custoPorTrecho: number; viagensPorSemana: number }): Promise<Academia> {
+  const { data, error } = await supabase
+    .from('academias')
+    .insert({ nome: payload.nome, modelo: payload.modelo, valor_cobrado: payload.valorCobrado, custo_por_trecho: payload.custoPorTrecho, viagens_por_semana: payload.viagensPorSemana })
+    .select()
+    .single();
+  if (error) throw error;
+  return academiaFromRow(data as AcademiaRow);
+}
+
+export async function updateAcademiaRow(id: string, payload: { nome: string; modelo: ModeloCobranca; valorCobrado: number; custoPorTrecho: number; viagensPorSemana: number }): Promise<void> {
+  const { error } = await supabase
+    .from('academias')
+    .update({ nome: payload.nome, modelo: payload.modelo, valor_cobrado: payload.valorCobrado, custo_por_trecho: payload.custoPorTrecho, viagens_por_semana: payload.viagensPorSemana })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteAcademiaRow(id: string): Promise<void> {
+  const { error } = await supabase.from('academias').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ---- alunos ----
+export interface AlunoInsertPayload {
+  nome: string;
+  academiaId: string | null;
+  plano: string;
+  base: number;
+  previstas: number;
+  horario: string;
+  fone: string;
+  desde: string;
+  inicial: string;
+}
+
+export async function insertAluno(payload: AlunoInsertPayload, sessoesIniciais: { dia: string; status: SessaoStatus }[]): Promise<Aluno> {
+  const { data, error } = await supabase
+    .from('alunos')
+    .insert({
+      nome: payload.nome,
+      inicial: payload.inicial,
+      academia_id: payload.academiaId,
+      plano: payload.plano,
+      base: payload.base,
+      previstas: payload.previstas,
+      horario: payload.horario,
+      fone: payload.fone,
+      desde: payload.desde,
+      status: 'ativo',
+      pag: 'aberto',
+      ferias: 0,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  const row = data as AlunoRow;
+
+  let sessoes: Sessao[] = [];
+  if (sessoesIniciais.length) {
+    const { data: sData, error: sError } = await supabase
+      .from('sessoes')
+      .insert(sessoesIniciais.map((s) => ({ aluno_id: row.id, dia: s.dia, status: s.status })))
+      .select();
+    if (sError) throw sError;
+    sessoes = ((sData ?? []) as SessaoRow[]).map(sessaoFromRow);
+  }
+  return alunoFromRow(row, sessoes);
+}
+
+export async function updateAlunoFields(id: string, payload: AlunoInsertPayload): Promise<void> {
+  const { error } = await supabase
+    .from('alunos')
+    .update({
+      nome: payload.nome,
+      inicial: payload.inicial,
+      academia_id: payload.academiaId,
+      plano: payload.plano,
+      base: payload.base,
+      previstas: payload.previstas,
+      horario: payload.horario,
+      fone: payload.fone,
+      desde: payload.desde,
+    })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteAlunoRow(id: string): Promise<void> {
+  const { error } = await supabase.from('alunos').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function setAlunoPag(id: string, pag: PagStatus): Promise<void> {
+  const { error } = await supabase.from('alunos').update({ pag }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function setAlunoStatus(id: string, status: StatusAluno, ferias?: number): Promise<void> {
+  const patch: { status: StatusAluno; ferias?: number } = { status };
+  if (ferias !== undefined) patch.ferias = ferias;
+  const { error } = await supabase.from('alunos').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+// ---- sessoes ----
+export async function setSessaoStatus(id: string, status: SessaoStatus): Promise<void> {
+  const { error } = await supabase.from('sessoes').update({ status }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function insertSessaoExtra(alunoId: string, dia: string): Promise<Sessao> {
+  const { data, error } = await supabase.from('sessoes').insert({ aluno_id: alunoId, dia, status: 'extra' }).select().single();
+  if (error) throw error;
+  return sessaoFromRow(data as SessaoRow);
+}
+
+export async function limparAjustesRemote(alunoId: string): Promise<void> {
+  const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
+    supabase.from('alunos').update({ ferias: 0 }).eq('id', alunoId),
+    supabase.from('sessoes').delete().eq('aluno_id', alunoId).eq('status', 'extra'),
+    supabase.from('sessoes').update({ status: 'feita' }).eq('aluno_id', alunoId).eq('status', 'cancelada'),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  if (e3) throw e3;
+}
+
+// ---- despesas ----
+export interface DespesaPayload {
+  dia: string;
+  cat: string;
+  desc: string;
+  valor: number;
+}
+
+export async function insertDespesa(payload: DespesaPayload): Promise<Despesa> {
+  const { data, error } = await supabase.from('despesas').insert({ dia: payload.dia, cat: payload.cat, descricao: payload.desc, valor: payload.valor }).select().single();
+  if (error) throw error;
+  return despesaFromRow(data as DespesaRow);
+}
+
+export async function updateDespesaRow(id: string, payload: DespesaPayload): Promise<void> {
+  const { error } = await supabase.from('despesas').update({ dia: payload.dia, cat: payload.cat, descricao: payload.desc, valor: payload.valor }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteDespesaRow(id: string): Promise<void> {
+  const { error } = await supabase.from('despesas').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ---- ajustes ----
+export async function upsertAjustes(userId: string, patch: Partial<{ grafico: string; metaMensal: number; diasParaAtraso: number; semanasPorMes: number }>): Promise<void> {
+  const row: Record<string, unknown> = { user_id: userId };
+  if (patch.grafico !== undefined) row.grafico = patch.grafico;
+  if (patch.metaMensal !== undefined) row.meta_mensal = patch.metaMensal;
+  if (patch.diasParaAtraso !== undefined) row.dias_para_atraso = patch.diasParaAtraso;
+  if (patch.semanasPorMes !== undefined) row.semanas_por_mes = patch.semanasPorMes;
+  const { error } = await supabase.from('ajustes').upsert(row);
+  if (error) throw error;
+}

@@ -4,13 +4,13 @@ export type SessaoStatus = 'feita' | 'cancelada' | 'extra';
 export type ModeloCobranca = 'mensal_fixo' | 'por_aluno';
 
 export interface Sessao {
-  id: number;
+  id: string;
   dia: string; // "DD/09"
   s: SessaoStatus;
 }
 
 export interface Academia {
-  id: number;
+  id: string;
   nome: string;
   modelo: ModeloCobranca;
   valorCobrado: number;
@@ -19,7 +19,7 @@ export interface Academia {
 }
 
 export interface Aluno {
-  id: number;
+  id: string;
   nome: string;
   inicial: string;
   plano: string;
@@ -33,11 +33,11 @@ export interface Aluno {
   fone: string;
   ferias: number;
   sessoes: Sessao[];
-  academiaId: number | null;
+  academiaId: string | null;
 }
 
 export interface Despesa {
-  id: number;
+  id: string;
   dia: string;
   cat: string;
   desc: string;

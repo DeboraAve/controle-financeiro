@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
-import { ACADEMIAS_SEED, ACADEMIA_MODELOS, ALUNOS_SEED, CATS, DESPESAS_SEED, criarSessoesPadrao, dia2, iniciais } from '../data/seed';
+import { ACADEMIA_MODELOS, CATS, criarSessoesPadrao, dia2, iniciais } from '../data/seed';
 import { brl, calc } from '../lib/calc';
-import { useLocalStorageState } from './useLocalStorageState';
+import * as db from '../lib/db';
+import { useAuth } from './AuthContext';
 import type { DomainState, UiState } from './types';
 
 const initialUi: UiState = {
@@ -24,8 +25,18 @@ const initialUi: UiState = {
   editDespesaId: null,
 };
 
+const emptyDomain: DomainState = {
+  alunos: [],
+  despesas: [],
+  academias: [],
+  grafico: 'Barras mensais',
+  metaMensal: 7500,
+  diasParaAtraso: 5,
+  semanasPorMes: 4,
+};
+
 export interface AlunoListItem {
-  id: number;
+  id: string;
   nome: string;
   inicial: string;
   inicialCor: string;
@@ -39,7 +50,7 @@ export interface AlunoListItem {
 }
 
 export interface AlunoDetalheVm {
-  id: number;
+  id: string;
   nome: string;
   desde: string;
   tagClass: string;
@@ -63,7 +74,7 @@ export interface AlunoDetalheVm {
   media: string;
   historico: { mes: string; nota: string; valor: string }[];
   sessoes: {
-    id: number;
+    id: string;
     dia: string;
     rotulo: string;
     borda: string;
@@ -75,7 +86,7 @@ export interface AlunoDetalheVm {
 
 export interface AlunoFormPayload {
   nome: string;
-  academiaId: number | null;
+  academiaId: string | null;
   planoTipo: 'Pacote' | 'Mensalidade fixa';
   valorPacote: number;
   aulasPrevistas: number;
@@ -106,16 +117,9 @@ function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number)
   return { base, desloc, total };
 }
 
-function useAppStateInternal() {
-  const [domain, setDomain] = useLocalStorageState<DomainState>('controle-financeiro:v2', {
-    alunos: ALUNOS_SEED,
-    despesas: DESPESAS_SEED,
-    academias: ACADEMIAS_SEED,
-    grafico: 'Barras mensais',
-    metaMensal: 7500,
-    diasParaAtraso: 5,
-    semanasPorMes: 4,
-  });
+function useAppStateInternal(userId: string) {
+  const [domain, setDomain] = useState<DomainState>(emptyDomain);
+  const [loading, setLoading] = useState(true);
   const [ui, setUi] = useState<UiState>(initialUi);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -127,12 +131,42 @@ function useAppStateInternal() {
     toastTimer.current = setTimeout(() => patchUi({ toast: null }), 2600);
   }, [patchUi]);
 
-  const patchAluno = useCallback((id: number, fn: (a: Aluno) => Aluno) => {
+  const reportError = useCallback((e: unknown) => {
+    const msg = e instanceof Error ? e.message : 'Erro ao salvar';
+    showToast('Não deu pra salvar — ' + msg);
+  }, [showToast]);
+
+  useEffect(() => {
+    let ativo = true;
+    setLoading(true);
+    db.fetchDomain(userId)
+      .then((remote) => {
+        if (!ativo) return;
+        setDomain({
+          alunos: remote.alunos,
+          despesas: remote.despesas,
+          academias: remote.academias,
+          grafico: remote.ajustes.grafico,
+          metaMensal: remote.ajustes.metaMensal,
+          diasParaAtraso: remote.ajustes.diasParaAtraso,
+          semanasPorMes: remote.ajustes.semanasPorMes,
+        });
+      })
+      .catch((e) => reportError(e))
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [userId, reportError]);
+
+  const patchAlunoLocal = useCallback((id: string, fn: (a: Aluno) => Aluno) => {
     setDomain((s) => ({
       ...s,
       alunos: s.alunos.map((a) => (a.id === id ? fn({ ...a, sessoes: a.sessoes.map((x) => ({ ...x })) }) : a)),
     }));
-  }, [setDomain]);
+  }, []);
 
   const atual = domain.alunos.find((a) => a.id === ui.alunoId);
 
@@ -199,7 +233,7 @@ function useAppStateInternal() {
       set: () => patchUi({ filtro: f }),
     }));
 
-    const academiaNome = (id: number | null) => domain.academias.find((ac) => ac.id === id)?.nome ?? null;
+    const academiaNome = (id: string | null) => domain.academias.find((ac) => ac.id === id)?.nome ?? null;
 
     const tagDe = (a: Aluno) =>
       a.status === 'ferias'
@@ -266,7 +300,8 @@ function useAppStateInternal() {
         textoInativo: a.status === 'inativo' ? 'Reativar aluno' : 'Inativar aluno',
         acaoPagamentoTexto: a.pag === 'pago' ? 'Pagamento recebido ✓' : 'Registrar pagamento de ' + brl(c.total),
         acaoPagamento: () => {
-          patchAluno(a.id, (x) => ({ ...x, pag: 'pago' }));
+          patchAlunoLocal(a.id, (x) => ({ ...x, pag: 'pago' }));
+          db.setAlunoPag(a.id, 'pago').catch(reportError);
           showToast('Pagamento de ' + a.nome + ' registrado.');
         },
         media: brl((a.base * 3.6) / 4),
@@ -283,11 +318,14 @@ function useAppStateInternal() {
           borda: s.s === 'cancelada' ? 'var(--color-neutral-400)' : s.s === 'extra' ? 'var(--color-accent-800)' : 'var(--color-divider)',
           fundo: s.s === 'extra' ? 'var(--color-accent-800)' : s.s === 'cancelada' ? 'var(--color-neutral-200)' : 'transparent',
           cor: s.s === 'extra' ? 'var(--color-bg)' : s.s === 'cancelada' ? 'var(--color-neutral-600)' : 'var(--color-text)',
-          toggle: () =>
-            patchAluno(a.id, (x) => ({
+          toggle: () => {
+            const novo = s.s === 'feita' ? 'cancelada' : 'feita';
+            patchAlunoLocal(a.id, (x) => ({
               ...x,
-              sessoes: x.sessoes.map((y) => (y.id === s.id ? { ...y, s: y.s === 'feita' ? 'cancelada' : 'feita' } : y)),
-            })),
+              sessoes: x.sessoes.map((y) => (y.id === s.id ? { ...y, s: novo } : y)),
+            }));
+            db.setSessaoStatus(s.id, novo).catch(reportError);
+          },
         })),
       };
     }
@@ -365,6 +403,7 @@ function useAppStateInternal() {
           return;
         }
         setDomain((s) => ({ ...s, academias: s.academias.filter((x) => x.id !== ac.id) }));
+        db.deleteAcademiaRow(ac.id).catch(reportError);
         showToast(ac.nome + ' excluída.');
       },
     }));
@@ -374,6 +413,7 @@ function useAppStateInternal() {
     const editandoDespesa = domain.despesas.find((d) => d.id === S.editDespesaId) ?? null;
 
     return {
+      loading,
       isPainel: S.tab === 'painel',
       isAlunos: S.tab === 'alunos',
       isDetalhe: S.tab === 'aluno' && !!a,
@@ -402,7 +442,7 @@ function useAppStateInternal() {
         metaPct,
         metaFrase: faltam > 0 ? 'Faltam ' + brl(faltam) + ' pra bater a meta' : 'Meta batida — ' + brl(-faltam) + ' acima',
         recebidoPct: recPct,
-        concentracao: 'Os 3 primeiros são ' + Math.round((top3 / (previsto || 1)) * 100) + '% do seu mês.',
+        concentracao: ranking.length ? 'Os 3 primeiros são ' + Math.round((top3 / (previsto || 1)) * 100) + '% do seu mês.' : 'Cadastre alunos pra ver sua concentração de receita.',
         alerta: emAtraso.length
           ? emAtraso.length + (emAtraso.length === 1 ? ' aluno atrasado somando ' : ' alunos atrasados somando ') + brl(atrasado) + '. ' + canceladasTotais + ' cancelamentos já tiraram ' + brl(descontos) + ' do fechamento.'
           : 'Nenhum atraso. ' + canceladasTotais + ' cancelamentos tiraram ' + brl(descontos) + ' do mês.',
@@ -443,18 +483,27 @@ function useAppStateInternal() {
       contagem: visiveis.length + ' de ' + domain.alunos.length + ' alunos · ' + ativos.length + ' gerando receita',
       aluno,
       voltar: () => patchUi({ tab: 'alunos', alunoId: null }),
-      addExtra: () => a && patchAluno(a.id, (x) => ({ ...x, sessoes: [...x.sessoes, { id: Date.now(), dia: dia2(28), s: 'extra' }] })),
-      limparAjustes: () =>
-        a &&
-        patchAluno(a.id, (x) => ({
+      addExtra: () => {
+        if (!a) return;
+        const dia = dia2(28);
+        db.insertSessaoExtra(a.id, dia)
+          .then((nova) => patchAlunoLocal(a.id, (x) => ({ ...x, sessoes: [...x.sessoes, nova] })))
+          .catch(reportError);
+      },
+      limparAjustes: () => {
+        if (!a) return;
+        patchAlunoLocal(a.id, (x) => ({
           ...x,
           ferias: 0,
           sessoes: x.sessoes.filter((s) => s.s !== 'extra').map((s) => ({ ...s, s: 'feita' })),
-        })),
+        }));
+        db.limparAjustesRemote(a.id).catch(reportError);
+      },
       abrirFerias: () => {
         if (!a) return;
         if (a.status === 'ferias') {
-          patchAluno(a.id, (x) => ({ ...x, status: 'ativo', ferias: 0 }));
+          patchAlunoLocal(a.id, (x) => ({ ...x, status: 'ativo', ferias: 0 }));
+          db.setAlunoStatus(a.id, 'ativo', 0).catch(reportError);
           showToast(a.nome + ' voltou das férias.');
         } else {
           patchUi({ modal: 'ferias', feriasValor: String(Math.round(a.base / 2)) });
@@ -463,7 +512,8 @@ function useAppStateInternal() {
       abrirInativar: () => {
         if (!a) return;
         if (a.status === 'inativo') {
-          patchAluno(a.id, (x) => ({ ...x, status: 'ativo' }));
+          patchAlunoLocal(a.id, (x) => ({ ...x, status: 'ativo' }));
+          db.setAlunoStatus(a.id, 'ativo').catch(reportError);
           showToast(a.nome + ' reativado — histórico intacto.');
         } else {
           patchUi({ modal: 'inativar' });
@@ -492,13 +542,15 @@ function useAppStateInternal() {
       confirmarFerias: () => {
         if (!a) return;
         const v = parseInt(S.feriasValor || '0', 10);
-        patchAluno(a.id, (x) => ({ ...x, status: 'ferias', ferias: v }));
+        patchAlunoLocal(a.id, (x) => ({ ...x, status: 'ferias', ferias: v }));
+        db.setAlunoStatus(a.id, 'ferias', v).catch(reportError);
         patchUi({ modal: null });
         showToast('Férias marcadas — ' + brl(v) + ' descontados de setembro.');
       },
       confirmarInativar: () => {
         if (!a) return;
-        patchAluno(a.id, (x) => ({ ...x, status: 'inativo' }));
+        patchAlunoLocal(a.id, (x) => ({ ...x, status: 'inativo' }));
+        db.setAlunoStatus(a.id, 'inativo').catch(reportError);
         patchUi({ modal: null });
         showToast(a.nome + ' inativado. Histórico preservado.');
       },
@@ -526,12 +578,13 @@ function useAppStateInternal() {
           showToast('Coloca o valor da despesa.');
           return;
         }
-        setDomain((s) => ({
-          ...s,
-          despesas: [{ id: Date.now(), dia: '28/09', cat: S.despCat, desc: S.despDesc || S.despCat, valor: v }, ...s.despesas],
-        }));
-        patchUi({ despValor: '', despDesc: '' });
-        showToast('Despesa de ' + brl(v) + ' lançada.');
+        db.insertDespesa({ dia: '28/09', cat: S.despCat, desc: S.despDesc || S.despCat, valor: v })
+          .then((nova) => {
+            setDomain((s) => ({ ...s, despesas: [nova, ...s.despesas] }));
+            patchUi({ despValor: '', despDesc: '' });
+            showToast('Despesa de ' + brl(v) + ' lançada.');
+          })
+          .catch(reportError);
       },
       despesas: domain.despesas.map((d) => ({
         id: d.id,
@@ -556,86 +609,85 @@ function useAppStateInternal() {
           return;
         }
         if (S.editAcademiaId) {
-          setDomain((s) => ({
-            ...s,
-            academias: s.academias.map((ac) => (ac.id === S.editAcademiaId ? { ...ac, ...payload } : ac)),
-          }));
+          const id = S.editAcademiaId;
+          setDomain((s) => ({ ...s, academias: s.academias.map((ac) => (ac.id === id ? { ...ac, ...payload } : ac)) }));
+          db.updateAcademiaRow(id, payload).catch(reportError);
           showToast(payload.nome + ' atualizada.');
+          patchUi({ modal: 'academias', editAcademiaId: null });
         } else {
-          setDomain((s) => ({ ...s, academias: [...s.academias, { ...payload, id: Date.now() }] }));
-          showToast(payload.nome + ' cadastrada.');
+          db.insertAcademia(payload)
+            .then((nova) => {
+              setDomain((s) => ({ ...s, academias: [...s.academias, nova] }));
+              showToast(payload.nome + ' cadastrada.');
+              patchUi({ modal: 'academias', editAcademiaId: null });
+            })
+            .catch(reportError);
         }
-        patchUi({ modal: 'academias', editAcademiaId: null });
       },
       academiasOptions: domain.academias.map((ac) => ({ id: ac.id, nome: ac.nome })),
       modalAlunoForm: S.modal === 'alunoForm',
       editandoAluno,
       abrirNovoAluno: () => patchUi({ modal: 'alunoForm', editAlunoId: null }),
-      abrirEditarAluno: (id: number) => patchUi({ modal: 'alunoForm', editAlunoId: id }),
+      abrirEditarAluno: (id: string) => patchUi({ modal: 'alunoForm', editAlunoId: id }),
       salvarAluno: (payload: AlunoFormPayload) => {
         if (!payload.nome.trim()) {
           showToast('Dá um nome pro aluno.');
           return;
         }
         const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + payload.aulasPrevistas + ' aulas' : 'Mensalidade fixa';
+        const campos = {
+          nome: payload.nome,
+          inicial: iniciais(payload.nome),
+          academiaId: payload.academiaId,
+          plano,
+          base: payload.valorPacote,
+          previstas: payload.aulasPrevistas,
+          horario: payload.horario,
+          fone: payload.fone,
+          desde: payload.desde,
+        };
         if (S.editAlunoId) {
-          patchAluno(S.editAlunoId, (x) => ({
-            ...x,
-            nome: payload.nome,
-            inicial: iniciais(payload.nome),
-            academiaId: payload.academiaId,
-            plano,
-            base: payload.valorPacote,
-            previstas: payload.aulasPrevistas,
-            horario: payload.horario,
-            fone: payload.fone,
-            desde: payload.desde,
-          }));
+          const id = S.editAlunoId;
+          patchAlunoLocal(id, (x) => ({ ...x, ...campos }));
+          db.updateAlunoFields(id, campos).catch(reportError);
           showToast(payload.nome + ' atualizado.');
+          patchUi({ modal: null, editAlunoId: null });
         } else {
-          const novo: Aluno = {
-            id: Date.now(),
-            nome: payload.nome,
-            inicial: iniciais(payload.nome),
-            academiaId: payload.academiaId,
-            plano,
-            base: payload.valorPacote,
-            previstas: payload.aulasPrevistas,
-            horario: payload.horario,
-            fone: payload.fone,
-            desde: payload.desde,
-            status: 'ativo',
-            pag: 'aberto',
-            ferias: 0,
-            sessoes: criarSessoesPadrao(payload.aulasPrevistas),
-          };
-          setDomain((s) => ({ ...s, alunos: [...s.alunos, novo] }));
-          showToast(payload.nome + ' cadastrado.');
+          db.insertAluno(campos, criarSessoesPadrao(payload.aulasPrevistas).map((s) => ({ dia: s.dia, status: s.status })))
+            .then((novo) => {
+              setDomain((s) => ({ ...s, alunos: [...s.alunos, novo] }));
+              showToast(payload.nome + ' cadastrado.');
+              patchUi({ modal: null, editAlunoId: null });
+            })
+            .catch(reportError);
         }
-        patchUi({ modal: null, editAlunoId: null });
       },
       modalAlunoExcluir: S.modal === 'alunoExcluir',
       abrirExcluirAluno: () => a && patchUi({ modal: 'alunoExcluir' }),
       confirmarExcluirAluno: () => {
         if (!a) return;
-        setDomain((s) => ({ ...s, alunos: s.alunos.filter((x) => x.id !== a.id) }));
+        const nome = a.nome;
+        const id = a.id;
+        setDomain((s) => ({ ...s, alunos: s.alunos.filter((x) => x.id !== id) }));
+        db.deleteAlunoRow(id).catch(reportError);
         patchUi({ modal: null, tab: 'alunos', alunoId: null });
-        showToast(a.nome + ' excluído de vez.');
+        showToast(nome + ' excluído de vez.');
       },
       modalDespesaForm: S.modal === 'despesaForm',
       editandoDespesa,
       salvarDespesa: (payload: DespesaFormPayload) => {
         if (!S.editDespesaId) return;
-        setDomain((s) => ({
-          ...s,
-          despesas: s.despesas.map((d) => (d.id === S.editDespesaId ? { ...d, ...payload } : d)),
-        }));
+        const id = S.editDespesaId;
+        setDomain((s) => ({ ...s, despesas: s.despesas.map((d) => (d.id === id ? { ...d, ...payload } : d)) }));
+        db.updateDespesaRow(id, payload).catch(reportError);
         patchUi({ modal: null, editDespesaId: null });
         showToast('Despesa atualizada.');
       },
       excluirDespesa: () => {
         if (!S.editDespesaId) return;
-        setDomain((s) => ({ ...s, despesas: s.despesas.filter((d) => d.id !== S.editDespesaId) }));
+        const id = S.editDespesaId;
+        setDomain((s) => ({ ...s, despesas: s.despesas.filter((d) => d.id !== id) }));
+        db.deleteDespesaRow(id).catch(reportError);
         patchUi({ modal: null, editDespesaId: null });
         showToast('Despesa excluída.');
       },
@@ -664,7 +716,8 @@ function useAppStateInternal() {
                   '. Consegue acertar hoje? Chave Pix é meu celular. Bora manter o ritmo!',
               }),
             baixar: () => {
-              patchAluno(x.id, (y) => ({ ...y, pag: 'pago' }));
+              patchAlunoLocal(x.id, (y) => ({ ...y, pag: 'pago' }));
+              db.setAlunoPag(x.id, 'pago').catch(reportError);
               showToast(x.nome + ' pago. Boa!');
             },
           };
@@ -675,7 +728,9 @@ function useAppStateInternal() {
       setMsg: (v: string) => patchUi({ msg: v }),
       enviarCobranca: () => {
         if (S.cobrandoId == null) return;
-        patchAluno(S.cobrandoId, (x) => ({ ...x, pag: 'cobrado' }));
+        const id = S.cobrandoId;
+        patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
+        db.setAlunoPag(id, 'cobrado').catch(reportError);
         patchUi({ modal: null });
         showToast('Mensagem enviada para ' + cobrando.nome.split(' ')[0] + '.');
       },
@@ -683,16 +738,28 @@ function useAppStateInternal() {
       temToast: !!S.toast,
       // settings (Ajustes)
       grafico: domain.grafico,
-      setGrafico: (v: DomainState['grafico']) => setDomain((s) => ({ ...s, grafico: v })),
+      setGrafico: (v: DomainState['grafico']) => {
+        setDomain((s) => ({ ...s, grafico: v }));
+        db.upsertAjustes(userId, { grafico: v }).catch(reportError);
+      },
       metaMensal: domain.metaMensal,
-      setMetaMensal: (v: number) => setDomain((s) => ({ ...s, metaMensal: v })),
+      setMetaMensal: (v: number) => {
+        setDomain((s) => ({ ...s, metaMensal: v }));
+        db.upsertAjustes(userId, { metaMensal: v }).catch(reportError);
+      },
       diasParaAtraso: domain.diasParaAtraso,
-      setDiasParaAtraso: (v: number) => setDomain((s) => ({ ...s, diasParaAtraso: v })),
+      setDiasParaAtraso: (v: number) => {
+        setDomain((s) => ({ ...s, diasParaAtraso: v }));
+        db.upsertAjustes(userId, { diasParaAtraso: v }).catch(reportError);
+      },
       semanasPorMes: domain.semanasPorMes,
-      setSemanasPorMes: (v: number) => setDomain((s) => ({ ...s, semanasPorMes: v })),
+      setSemanasPorMes: (v: number) => {
+        setDomain((s) => ({ ...s, semanasPorMes: v }));
+        db.upsertAjustes(userId, { semanasPorMes: v }).catch(reportError);
+      },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domain, ui, atual, patchUi, patchAluno, showToast, setDomain]);
+  }, [domain, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId]);
 
   return vm;
 }
@@ -702,7 +769,14 @@ type AppVm = ReturnType<typeof useAppStateInternal>;
 const AppContext = createContext<AppVm | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const vm = useAppStateInternal();
+  const { session } = useAuth();
+  const userId = session?.user.id;
+  if (!userId) return null;
+  return <AppProviderInner userId={userId}>{children}</AppProviderInner>;
+}
+
+function AppProviderInner({ userId, children }: { userId: string; children: ReactNode }) {
+  const vm = useAppStateInternal(userId);
   return <AppContext.Provider value={vm}>{children}</AppContext.Provider>;
 }
 

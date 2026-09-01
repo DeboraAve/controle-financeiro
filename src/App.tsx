@@ -1,4 +1,5 @@
 import { AppProvider, useApp } from './state/AppContext';
+import { AuthProvider, useAuth } from './state/AuthContext';
 import { SideNav, TabBar } from './components/Nav';
 import { Toast } from './components/Toast';
 import { FeriasModal } from './components/modals/FeriasModal';
@@ -10,6 +11,7 @@ import { AlunoExcluirModal } from './components/modals/AlunoExcluirModal';
 import { AcademiasModal } from './components/modals/AcademiasModal';
 import { AcademiaFormModal } from './components/modals/AcademiaFormModal';
 import { DespesaFormModal } from './components/modals/DespesaFormModal';
+import { Auth } from './screens/Auth';
 import { Painel } from './screens/Painel';
 import { Alunos } from './screens/Alunos';
 import { AlunoDetalhe } from './screens/AlunoDetalhe';
@@ -28,7 +30,17 @@ function Screen() {
   return null;
 }
 
+function Carregando() {
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--color-bg)', color: 'var(--color-neutral-600)', fontFamily: 'var(--font-body)', fontSize: 13 }}>
+      Carregando…
+    </div>
+  );
+}
+
 function Shell() {
+  const { loading } = useApp();
+  if (loading) return <Carregando />;
   return (
     <div className="app-shell">
       <SideNav />
@@ -52,10 +64,21 @@ function Shell() {
   );
 }
 
-export default function App() {
+function Gate() {
+  const { session, loading } = useAuth();
+  if (loading) return <Carregando />;
+  if (!session) return <Auth />;
   return (
     <AppProvider>
       <Shell />
     </AppProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
   );
 }

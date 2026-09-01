@@ -12,7 +12,7 @@ export interface DomainState {
 
 export interface UiState {
   tab: Tab;
-  alunoId: number | null;
+  alunoId: string | null;
   modal: Modal;
   filtro: 'Ativos' | 'Férias' | 'Inativos' | 'Todos';
   busca: string;
@@ -20,11 +20,11 @@ export interface UiState {
   despCat: string;
   despValor: string;
   despDesc: string;
-  cobrandoId: number | null;
+  cobrandoId: string | null;
   msg: string;
   toast: string | null;
   diaSel: number | null;
-  editAlunoId: number | null;
-  editAcademiaId: number | null;
-  editDespesaId: number | null;
+  editAlunoId: string | null;
+  editAcademiaId: string | null;
+  editDespesaId: string | null;
 }

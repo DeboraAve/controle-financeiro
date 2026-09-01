@@ -1,8 +1,19 @@
 import { useApp } from '../state/AppContext';
+import { useAuth } from '../state/AuthContext';
 import { BlueprintCard } from '../components/BlueprintCard';
+
+function iniciaisDe(nome: string | undefined, email: string | undefined): string {
+  if (nome && nome.trim()) {
+    const partes = nome.trim().split(/\s+/).filter(Boolean);
+    return partes.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '??';
+  }
+  return (email ?? '??').slice(0, 2).toUpperCase();
+}
 
 export function Painel() {
   const { resumo, meses, viz, topAlunos, irCobranca, abrirAjustes } = useApp();
+  const { session } = useAuth();
+  const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -11,7 +22,7 @@ export function Painel() {
           <div className="eyebrow">Setembro 2026</div>
           <h2 style={{ fontSize: 29, margin: '2px 0 0' }}>Bora fechar o mês</h2>
         </div>
-        <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">RA</div>
+        <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">{inicial}</div>
       </div>
 
       <BlueprintCard style={{ gap: 'var(--space-2)', padding: 'var(--space-4)' }}>

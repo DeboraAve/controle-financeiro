@@ -1,10 +1,12 @@
 import { useApp } from '../../state/AppContext';
+import { useAuth } from '../../state/AuthContext';
 import { BlueprintCard } from '../BlueprintCard';
 
 const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as const;
 
 export function AjustesModal() {
   const { modalAjustes, fecharModal, grafico, setGrafico, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso } = useApp();
+  const { session, signOut } = useAuth();
   if (!modalAjustes) return null;
   return (
     <div className="dialog-backdrop" style={{ zIndex: 80 }}>
@@ -43,7 +45,11 @@ export function AjustesModal() {
             onChange={(e) => setDiasParaAtraso(Math.max(1, parseInt(e.target.value || '1', 10)))}
           />
         </div>
-        <div className="dialog-actions">
+        <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', borderTop: '1px solid var(--color-divider)', paddingTop: 8 }}>
+          Logado como {session?.user.email}
+        </div>
+        <div className="dialog-actions" style={{ justifyContent: 'space-between' }}>
+          <button className="btn btn-secondary" onClick={signOut}>Sair da conta</button>
           <button className="btn btn-primary" style={{ marginTop: 0 }} onClick={fecharModal}>Pronto</button>
         </div>
       </BlueprintCard>

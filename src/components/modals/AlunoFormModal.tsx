@@ -48,7 +48,7 @@ export function AlunoFormModal() {
   const salvar = () => {
     const payload: AlunoFormPayload = {
       nome,
-      academiaId: academiaId ? parseInt(academiaId, 10) : null,
+      academiaId: academiaId || null,
       planoTipo,
       valorPacote: parseInt(valorPacote || '0', 10),
       aulasPrevistas: Math.max(1, parseInt(aulasPrevistas || '1', 10)),
