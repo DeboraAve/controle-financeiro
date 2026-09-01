@@ -18,8 +18,8 @@ export default defineConfig({
         start_url: '/controle-financeiro/',
         scope: '/controle-financeiro/',
         display: 'standalone',
-        background_color: '#f2f2f3',
-        theme_color: '#1d2d3d',
+        background_color: '#f8f6f4',
+        theme_color: '#d95026',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
