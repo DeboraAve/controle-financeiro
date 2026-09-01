@@ -78,6 +78,7 @@ export function AlunoDetalhe() {
             <div style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}>
               {av.pesoFmt} · IMC {av.imcFmt} ({av.imcClasse}) · {av.risco}
               {av.temDobras && <> · {av.percentualGorduraFmt} gordura · {av.massaMagraFmt} massa magra</>}
+              {av.rcqFmt && <> · RCQ {av.rcqFmt}</>}
             </div>
             {av.observacoes && <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{av.observacoes}</div>}
           </div>

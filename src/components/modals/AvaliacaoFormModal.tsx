@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp, type AvaliacaoFormPayload } from '../../state/AppContext';
-import { calcularAvaliacao } from '../../lib/avaliacaoCalc';
+import { calcularAvaliacao, calcularRcq } from '../../lib/avaliacaoCalc';
 import { BlueprintCard } from '../BlueprintCard';
 
 function hoje(): string {
@@ -28,6 +28,13 @@ export function AvaliacaoFormModal() {
   const [dAbdominal, setDAbdominal] = useState('');
   const [dSuprailiaca, setDSuprailiaca] = useState('');
   const [dCoxa, setDCoxa] = useState('');
+  const [dBiceps, setDBiceps] = useState('');
+  const [dPanturrilha, setDPanturrilha] = useState('');
+  const [pPescoco, setPPescoco] = useState('');
+  const [pTorax, setPTorax] = useState('');
+  const [pCintura, setPCintura] = useState('');
+  const [pAbdomen, setPAbdomen] = useState('');
+  const [pQuadril, setPQuadril] = useState('');
   const [observacoes, setObservacoes] = useState('');
 
   const preview = useMemo(() => {
@@ -50,6 +57,8 @@ export function AvaliacaoFormModal() {
     });
   }, [peso, estatura, idade, sexo, dPeitoral, dAxilar, dTriceps, dSubescapular, dAbdominal, dSuprailiaca, dCoxa]);
 
+  const rcqPreview = useMemo(() => calcularRcq(sexo, campoNum(pCintura), campoNum(pQuadril)), [sexo, pCintura, pQuadril]);
+
   if (!modalAvaliacaoForm || !aluno) return null;
 
   const salvar = () => {
@@ -70,6 +79,13 @@ export function AvaliacaoFormModal() {
       dobraAbdominal: campoNum(dAbdominal),
       dobraSuprailiaca: campoNum(dSuprailiaca),
       dobraCoxa: campoNum(dCoxa),
+      dobraBiceps: campoNum(dBiceps),
+      dobraPanturrilha: campoNum(dPanturrilha),
+      perimPescoco: campoNum(pPescoco),
+      perimTorax: campoNum(pTorax),
+      perimCintura: campoNum(pCintura),
+      perimAbdomen: campoNum(pAbdomen),
+      perimQuadril: campoNum(pQuadril),
       observacoes,
     };
     salvarAvaliacao(payload);
@@ -129,6 +145,17 @@ export function AvaliacaoFormModal() {
           {dobraField('Abdominal', dAbdominal, setDAbdominal)}
           {dobraField('Suprailíaca', dSuprailiaca, setDSuprailiaca)}
           {dobraField('Coxa', dCoxa, setDCoxa)}
+          {dobraField('Bíceps', dBiceps, setDBiceps)}
+          {dobraField('Panturrilha', dPanturrilha, setDPanturrilha)}
+        </div>
+
+        <div className="card-kicker" style={{ marginTop: 4 }}>Perimetria (cm) — opcional</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+          {dobraField('Pescoço', pPescoco, setPPescoco)}
+          {dobraField('Tórax', pTorax, setPTorax)}
+          {dobraField('Cintura', pCintura, setPCintura)}
+          {dobraField('Abdômen', pAbdomen, setPAbdomen)}
+          {dobraField('Quadril', pQuadril, setPQuadril)}
         </div>
 
         <div className="field">
@@ -152,6 +179,11 @@ export function AvaliacaoFormModal() {
             )}
             {!preview.temDobras && (
               <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>Preenche as 7 dobras pra calcular % de gordura também.</div>
+            )}
+            {rcqPreview && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <span>Relação cintura-quadril</span><span style={{ fontFamily: 'var(--font-heading)' }}>{rcqPreview.valor.toFixed(2)} · {rcqPreview.classe}</span>
+              </div>
             )}
           </div>
         )}

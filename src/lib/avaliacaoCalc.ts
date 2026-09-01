@@ -32,6 +32,20 @@ function classificarImc(imc: number): { classe: string; risco: string } {
   return { classe: 'Obesidade grau III', risco: 'Risco extremamente alto' };
 }
 
+export interface RcqResultado {
+  valor: number;
+  classe: string;
+}
+
+// Relação cintura-quadril — faixas de risco à saúde da OMS.
+export function calcularRcq(sexo: 'M' | 'F', cintura: number | null, quadril: number | null): RcqResultado | null {
+  if (!cintura || !quadril) return null;
+  const valor = cintura / quadril;
+  const cortes = sexo === 'M' ? [0.9, 0.99] : [0.8, 0.85];
+  const classe = valor < cortes[0] ? 'Risco baixo' : valor <= cortes[1] ? 'Risco moderado' : 'Risco alto';
+  return { valor, classe };
+}
+
 // Protocolo de 7 dobras cutâneas (Jackson & Pollock, 1978/1980) + equação de Siri.
 // Referência padrão usada na maioria dos softwares de avaliação física no Brasil.
 export function calcularAvaliacao(input: AvaliacaoInput): AvaliacaoResultado {

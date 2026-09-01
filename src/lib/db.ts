@@ -331,6 +331,13 @@ export interface AvaliacaoRow {
   dobra_abdominal: number | null;
   dobra_suprailiaca: number | null;
   dobra_coxa: number | null;
+  dobra_biceps: number | null;
+  dobra_panturrilha: number | null;
+  perim_pescoco: number | null;
+  perim_torax: number | null;
+  perim_cintura: number | null;
+  perim_abdomen: number | null;
+  perim_quadril: number | null;
   observacoes: string;
 }
 
@@ -347,6 +354,13 @@ export interface AvaliacaoPayload {
   dobraAbdominal: number | null;
   dobraSuprailiaca: number | null;
   dobraCoxa: number | null;
+  dobraBiceps: number | null;
+  dobraPanturrilha: number | null;
+  perimPescoco: number | null;
+  perimTorax: number | null;
+  perimCintura: number | null;
+  perimAbdomen: number | null;
+  perimQuadril: number | null;
   observacoes: string;
 }
 
@@ -373,6 +387,13 @@ export async function insertAvaliacao(alunoId: string, payload: AvaliacaoPayload
       dobra_abdominal: payload.dobraAbdominal,
       dobra_suprailiaca: payload.dobraSuprailiaca,
       dobra_coxa: payload.dobraCoxa,
+      dobra_biceps: payload.dobraBiceps,
+      dobra_panturrilha: payload.dobraPanturrilha,
+      perim_pescoco: payload.perimPescoco,
+      perim_torax: payload.perimTorax,
+      perim_cintura: payload.perimCintura,
+      perim_abdomen: payload.perimAbdomen,
+      perim_quadril: payload.perimQuadril,
       observacoes: payload.observacoes,
     })
     .select()

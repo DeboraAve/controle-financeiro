@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
 import { ACADEMIA_MODELOS, CATS, criarSessoesPadrao, dia2, iniciais } from '../data/seed';
 import { brl, calc } from '../lib/calc';
-import { calcularAvaliacao } from '../lib/avaliacaoCalc';
+import { calcularAvaliacao, calcularRcq } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import type { DomainState, UiState } from './types';
@@ -124,6 +124,13 @@ export interface AvaliacaoFormPayload {
   dobraAbdominal: number | null;
   dobraSuprailiaca: number | null;
   dobraCoxa: number | null;
+  dobraBiceps: number | null;
+  dobraPanturrilha: number | null;
+  perimPescoco: number | null;
+  perimTorax: number | null;
+  perimCintura: number | null;
+  perimAbdomen: number | null;
+  perimQuadril: number | null;
   observacoes: string;
 }
 
@@ -484,6 +491,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         dobraSuprailiaca: r.dobra_suprailiaca,
         dobraCoxa: r.dobra_coxa,
       });
+      const rcq = calcularRcq(r.sexo, r.perim_cintura, r.perim_quadril);
       return {
         id: r.id,
         data: r.data,
@@ -494,6 +502,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         temDobras: res.temDobras,
         percentualGorduraFmt: res.percentualGordura != null ? res.percentualGordura.toFixed(1) + '%' : '—',
         massaMagraFmt: res.massaMagra != null ? res.massaMagra.toFixed(1) + ' kg' : '—',
+        rcqFmt: rcq ? rcq.valor.toFixed(2) + ' (' + rcq.classe + ')' : null,
         observacoes: r.observacoes,
         excluir: () => {
           setAvaliacoes((s) => s.filter((x) => x.id !== r.id));
