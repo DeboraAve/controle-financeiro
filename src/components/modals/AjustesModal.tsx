@@ -1,17 +1,40 @@
+import { useState } from 'react';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
 import { BlueprintCard } from '../BlueprintCard';
+import { aplicarTema, lerTema, type Tema } from '../../lib/theme';
 
 const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as const;
+const TEMAS: { v: Tema; rotulo: string }[] = [
+  { v: 'system', rotulo: 'Sistema' },
+  { v: 'light', rotulo: 'Claro' },
+  { v: 'dark', rotulo: 'Escuro' },
+];
 
 export function AjustesModal() {
   const { modalAjustes, fecharModal, isGestao, grafico, setGrafico, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso } = useApp();
   const { session, isAdmin, signOut } = useAuth();
+  const [tema, setTema] = useState<Tema>(lerTema);
   if (!modalAjustes) return null;
+  const escolherTema = (t: Tema) => {
+    setTema(t);
+    aplicarTema(t);
+  };
   return (
     <div className="dialog-backdrop" style={{ zIndex: 80 }}>
       <BlueprintCard className="dialog" style={{ background: 'var(--color-bg)' }}>
         <div className="dialog-title">Ajustes</div>
+        <div className="field">
+          <label>Aparência</label>
+          <div className="seg" style={{ display: 'flex' }}>
+            {TEMAS.map((t) => (
+              <label key={t.v} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
+                <input type="radio" name="tema" checked={tema === t.v} onChange={() => escolherTema(t.v)} />
+                <span>{t.rotulo}</span>
+              </label>
+            ))}
+          </div>
+        </div>
         {!isGestao && (
           <>
             <div className="field">
