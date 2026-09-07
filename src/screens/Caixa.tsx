@@ -1,13 +1,15 @@
 import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 
 export function Caixa() {
   const {
     resumo, categorias, despValor, despDesc, setDespValor, setDespDesc, despPreview, addDespesa, despesas,
-    academiasResumo, abrirAcademias,
+    academiasResumo, abrirAcademias, recarregar,
   } = useApp();
 
   return (
+    <PullToRefresh onRefresh={recarregar}>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <h2 style={{ fontSize: 29, margin: 0 }}>Caixa</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 'var(--space-2)' }}>
@@ -87,5 +89,6 @@ export function Caixa() {
       </BlueprintCard>
       <div style={{ height: 6 }} />
     </div>
+    </PullToRefresh>
   );
 }

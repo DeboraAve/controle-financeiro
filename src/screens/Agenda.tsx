@@ -1,13 +1,16 @@
 import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
 
 export function Agenda() {
   const {
     diasMes, dia, agendaView, verSemana, verMes,
     semanaAtual, temSemanaAnterior, temSemanaSeguinte, semanaAnterior, semanaSeguinte, irParaHoje, resumoSemana,
+    recarregar,
   } = useApp();
 
   return (
+    <PullToRefresh onRefresh={recarregar}>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <h2 style={{ fontSize: 29, margin: 0 }}>Agenda</h2>
@@ -87,5 +90,6 @@ export function Agenda() {
       </BlueprintCard>
       <div style={{ height: 6 }} />
     </div>
+    </PullToRefresh>
   );
 }

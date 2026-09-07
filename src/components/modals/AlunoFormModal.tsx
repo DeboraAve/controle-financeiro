@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp, type AlunoFormPayload } from '../../state/AppContext';
 import { BlueprintCard } from '../BlueprintCard';
+import { IconeCarregando } from '../ui/icons';
 
 const PLANO_TIPOS = ['Pacote', 'Mensalidade fixa'] as const;
 const DIAS_SEMANA = [
@@ -25,9 +26,11 @@ export function AlunoFormModal() {
   const [horario, setHorario] = useState('');
   const [fone, setFone] = useState('');
   const [desde, setDesde] = useState('');
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
     if (!modalAlunoForm) return;
+    setSalvando(false);
     if (editandoAluno) {
       setNome(editandoAluno.nome);
       setAcademiaId(editandoAluno.academiaId != null ? String(editandoAluno.academiaId) : '');
@@ -76,7 +79,8 @@ export function AlunoFormModal() {
       fone,
       desde,
     };
-    salvarAluno(payload);
+    setSalvando(true);
+    salvarAluno(payload).finally(() => setSalvando(false));
   };
 
   return (
@@ -169,8 +173,10 @@ export function AlunoFormModal() {
         </div>
 
         <div className="dialog-actions">
-          <button className="btn btn-secondary" onClick={fecharModal}>Cancelar</button>
-          <button className="btn btn-primary" style={{ marginTop: 0 }} onClick={salvar}>{editandoAluno ? 'Salvar' : 'Cadastrar'}</button>
+          <button className="btn btn-secondary" onClick={fecharModal} disabled={salvando}>Cancelar</button>
+          <button className="btn btn-primary" style={{ marginTop: 0 }} onClick={salvar} disabled={salvando}>
+            {salvando ? <IconeCarregando size={16} className="spin" aria-hidden /> : editandoAluno ? 'Salvar' : 'Cadastrar'}
+          </button>
         </div>
       </BlueprintCard>
     </div>
