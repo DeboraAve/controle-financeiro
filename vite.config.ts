@@ -4,22 +4,22 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/controle-financeiro/',
+  base: '/impulsa/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Controle Financeiro',
-        short_name: 'Financeiro',
-        description: 'Controle financeiro para personal trainer — alunos, pacotes, agenda e caixa.',
+        name: 'Impulsa',
+        short_name: 'Impulsa',
+        description: 'Seu negócio de personal, em ritmo — alunos, pacotes, agenda e caixa.',
         lang: 'pt-BR',
-        start_url: '/controle-financeiro/',
-        scope: '/controle-financeiro/',
+        start_url: '/impulsa/',
+        scope: '/impulsa/',
         display: 'standalone',
-        background_color: '#f8f6f4',
-        theme_color: '#d95026',
+        background_color: '#FFF7F3',
+        theme_color: '#FF3D7F',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },

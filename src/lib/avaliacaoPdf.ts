@@ -116,7 +116,7 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados): Blob {
   doc.setDrawColor(...CREME);
   doc.setTextColor(...CINZA);
   doc.setFontSize(8);
-  doc.text('Gerado pelo Controle Financeiro em ' + new Date().toLocaleDateString('pt-BR'), margin, doc.internal.pageSize.getHeight() - 30);
+  doc.text('Gerado via Impulsa em ' + new Date().toLocaleDateString('pt-BR'), margin, doc.internal.pageSize.getHeight() - 30);
 
   return doc.output('blob');
 }
