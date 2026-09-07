@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
 import { ACADEMIA_MODELOS, CATS, dia2, iniciais } from '../data/seed';
 import { brl, calc } from '../lib/calc';
@@ -6,6 +7,8 @@ import { calcularAvaliacao, calcularRcq } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
 import type { DomainState, UiState } from './types';
+import type { Tone } from '../components/ui/tone';
+import { IconeAgenda, IconeAlunos, IconeCaixa, IconeCobranca, IconePainel } from '../components/ui/icons';
 
 const initialUi: UiState = {
   tab: 'painel',
@@ -41,13 +44,13 @@ export interface AlunoListItem {
   id: string;
   nome: string;
   inicial: string;
-  inicialCor: string;
+  avatarTone: Tone;
   sub: string;
   totalFmt: string;
-  tagClass: string;
+  tagTone: Tone;
   tagTexto: string;
   pagTexto: string;
-  pagCor: string;
+  pagTone: Tone;
   abrir: () => void;
 }
 
@@ -164,25 +167,49 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
   const [ui, setUi] = useState<UiState>(initialUi);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const patchUi = useCallback((p: Partial<UiState>) => setUi((s) => ({ ...s, ...p })), []);
+  const patchUi = useCallback((p: Partial<UiState>) => {
+    // Troca de tela ganha uma transição (fade + slide via View Transitions API,
+    // ver .app-content em app.css) — patches que não mexem em `tab` continuam
+    // instantâneos, é só a navegação entre telas que "desliza".
+    const mudaTab = 'tab' in p;
+    const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (mudaTab && !reduzMovimento && document.startViewTransition) {
+      document.startViewTransition(() => flushSync(() => setUi((s) => ({ ...s, ...p }))));
+    } else {
+      setUi((s) => ({ ...s, ...p }));
+    }
+  }, []);
 
-  const showToast = useCallback((t: string) => {
+  const showToast = useCallback((t: string, tone: Tone = 'ok') => {
     clearTimeout(toastTimer.current);
-    patchUi({ toast: t });
+    patchUi({ toast: { msg: t, tone } });
     toastTimer.current = setTimeout(() => patchUi({ toast: null }), 2600);
+    // Feedback tátil — curto e discreto no sucesso, um pouco mais insistente
+    // no erro. iOS Safari não tem Vibration API; o guard evita quebrar lá.
+    if ('vibrate' in navigator) navigator.vibrate(tone === 'danger' ? [20, 40, 20] : 12);
   }, [patchUi]);
 
   const reportError = useCallback((e: unknown) => {
     const msg = e instanceof Error ? e.message : 'Erro ao salvar';
-    showToast('Não deu pra salvar — ' + msg);
+    showToast('Não deu pra salvar — ' + msg, 'danger');
   }, [showToast]);
 
-  useEffect(() => {
-    let ativo = true;
-    setLoading(true);
-    db.fetchDomain(userId)
+  // Contador de geração: cada chamada (login, troca de conta pelo admin, ou
+  // um pull-to-refresh) invalida qualquer busca anterior ainda em voo — sem
+  // isso, duas respostas podem chegar fora de ordem e a mais velha
+  // sobrescrever a mais nova.
+  const geracaoRef = useRef(0);
+
+  // `mostrarCarregando` fica false no pull-to-refresh: a tela já tem dados,
+  // não faz sentido voltar pro skeleton — só o gesto de puxar mostra que
+  // está buscando de novo.
+  const carregarDomain = useCallback((mostrarCarregando: boolean) => {
+    const minhaGeracao = ++geracaoRef.current;
+    if (mostrarCarregando) setLoading(true);
+    return db
+      .fetchDomain(userId)
       .then((remote) => {
-        if (!ativo) return;
+        if (geracaoRef.current !== minhaGeracao) return;
         setDomainRaw({
           alunos: remote.alunos,
           despesas: remote.despesas,
@@ -193,14 +220,19 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         setDonoPorAcademia(remote.donoPorAcademia);
         setAjustesPorUser(remote.ajustesPorUser);
       })
-      .catch((e) => reportError(e))
+      .catch((e) => {
+        if (geracaoRef.current === minhaGeracao) reportError(e);
+      })
       .finally(() => {
-        if (ativo) setLoading(false);
+        if (mostrarCarregando && geracaoRef.current === minhaGeracao) setLoading(false);
       });
-    return () => {
-      ativo = false;
-    };
   }, [userId, reportError]);
+
+  useEffect(() => {
+    carregarDomain(true);
+  }, [userId, carregarDomain]);
+
+  const recarregar = useCallback(() => carregarDomain(false), [carregarDomain]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -222,6 +254,29 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       alunos: s.alunos.map((a) => (a.id === id ? fn({ ...a, sessoes: a.sessoes.map((x) => ({ ...x })) }) : a)),
     }));
   }, []);
+
+  // Atualiza a tela na hora e só volta atrás se o Supabase recusar — em vez
+  // de esperar o servidor confirmar pra então refletir a mudança. É o padrão
+  // que as ações de toque rápido (pago, sessão, férias, inativar) já usavam
+  // pela metade (atualizavam local mas nunca desfaziam no erro); agora
+  // desfazem, com um toast explicando o que aconteceu.
+  const patchAlunoOtimista = useCallback(
+    (id: string, aplicar: (a: Aluno) => Aluno, persistir: () => Promise<void>, msgSucesso?: string) => {
+      const anterior = domainRaw.alunos.find((a) => a.id === id);
+      patchAlunoLocal(id, aplicar);
+      persistir()
+        .then(() => {
+          if (msgSucesso) showToast(msgSucesso, 'ok');
+        })
+        .catch((e) => {
+          if (anterior) patchAlunoLocal(id, () => anterior);
+          const msg = e instanceof Error ? e.message : 'Erro ao salvar';
+          showToast('Não deu pra salvar, desfiz a alteração — ' + msg, 'danger');
+        });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [domainRaw],
+  );
 
   const atual = domainRaw.alunos.find((a) => a.id === ui.alunoId);
 
@@ -389,6 +444,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       const okB = !S.busca || a.nome.toLowerCase().includes(S.busca.toLowerCase());
       return okF && okB;
     });
+    const tagToneDe = (a: Aluno): Tone => (a.status === 'ferias' ? 'outline' : a.status === 'inativo' ? 'neutral' : 'brand');
+    const pagToneDe = (a: Aluno): Tone => (a.pag === 'atrasado' ? 'danger' : a.pag === 'cobrado' ? 'brand' : 'muted');
     const listaAlunos: AlunoListItem[] = visiveis.map((a) => {
       const c = calcs.get(a.id)!;
       const nomeAcademia = academiaNome(a.academiaId);
@@ -396,11 +453,13 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         id: a.id,
         nome: a.nome,
         inicial: a.inicial,
-        inicialCor: a.status === 'inativo' ? 'var(--color-neutral-500)' : 'var(--color-accent-700)',
+        avatarTone: a.status === 'inativo' ? 'disabled' : 'brand',
         sub: a.plano + ' · ' + a.horario + (nomeAcademia ? ' · ' + nomeAcademia : ''),
         totalFmt: brl(c.total),
-        ...tagDe(a),
-        ...pagDe(a),
+        tagTone: tagToneDe(a),
+        tagTexto: tagDe(a).tagTexto,
+        pagTexto: pagDe(a).pagTexto,
+        pagTone: pagToneDe(a),
         abrir: () => patchUi({ tab: 'aluno', alunoId: a.id }),
       };
     });
@@ -430,9 +489,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         textoInativo: a.status === 'inativo' ? 'Reativar aluno' : 'Inativar aluno',
         acaoPagamentoTexto: a.pag === 'pago' ? 'Pagamento recebido ✓' : 'Registrar pagamento de ' + brl(c.total),
         acaoPagamento: () => {
-          patchAlunoLocal(a.id, (x) => ({ ...x, pag: 'pago' }));
-          db.setAlunoPag(a.id, 'pago').catch(reportError);
-          showToast('Pagamento de ' + a.nome + ' registrado.');
+          patchAlunoOtimista(a.id, (x) => ({ ...x, pag: 'pago' }), () => db.setAlunoPag(a.id, 'pago'), 'Pagamento de ' + a.nome + ' registrado.');
         },
         media: brl((a.base * 3.6) / 4),
         historico: [
@@ -450,11 +507,11 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           cor: s.s === 'extra' ? 'var(--color-bg)' : s.s === 'cancelada' ? 'var(--color-neutral-600)' : 'var(--color-text)',
           toggle: () => {
             const novo = s.s === 'feita' ? 'cancelada' : 'feita';
-            patchAlunoLocal(a.id, (x) => ({
-              ...x,
-              sessoes: x.sessoes.map((y) => (y.id === s.id ? { ...y, s: novo } : y)),
-            }));
-            db.setSessaoStatus(s.id, novo).catch(reportError);
+            patchAlunoOtimista(
+              a.id,
+              (x) => ({ ...x, sessoes: x.sessoes.map((y) => (y.id === s.id ? { ...y, s: novo } : y)) }),
+              () => db.setSessaoStatus(s.id, novo),
+            );
           },
         })),
       };
@@ -569,11 +626,11 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           statusTexto: s.s === 'cancelada' ? 'cancelada' : s.s === 'extra' ? 'extra' : 'feita',
           toggle: () => {
             const novo = s.s === 'feita' ? 'cancelada' : 'feita';
-            patchAlunoLocal(x.id, (a) => ({
-              ...a,
-              sessoes: a.sessoes.map((y) => (y.id === s.id ? { ...y, s: novo } : y)),
-            }));
-            db.setSessaoStatus(s.id, novo).catch(reportError);
+            patchAlunoOtimista(
+              x.id,
+              (a) => ({ ...a, sessoes: a.sessoes.map((y) => (y.id === s.id ? { ...y, s: novo } : y)) }),
+              () => db.setSessaoStatus(s.id, novo),
+            );
           },
         });
       }),
@@ -691,6 +748,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
 
     return {
       loading,
+      recarregar,
       isAdmin,
       isGestao,
       personaisResumo,
@@ -743,18 +801,18 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       topAlunos: top,
       irCobranca: () => patchUi({ tab: 'cobranca' }),
       tabs: ([
-        ['painel', 'Painel'],
-        ['alunos', 'Alunos'],
-        ['agenda', 'Agenda'],
-        ['caixa', 'Caixa'],
-        ['cobranca', 'Cobrar'],
-      ] as const).map(([k, r]) => {
+        ['painel', 'Painel', IconePainel],
+        ['alunos', 'Alunos', IconeAlunos],
+        ['agenda', 'Agenda', IconeAgenda],
+        ['caixa', 'Caixa', IconeCaixa],
+        ['cobranca', 'Cobrar', IconeCobranca],
+      ] as const).map(([k, r, Icone]) => {
         const on = S.tab === k || (k === 'alunos' && S.tab === 'aluno');
         return {
           key: k,
           rotulo: r,
-          cor: on ? 'var(--color-accent-800)' : 'var(--color-neutral-500)',
-          marca: on ? 'var(--color-accent)' : 'var(--color-neutral-300)',
+          Icone,
+          ativo: on,
           ir: () => patchUi({ tab: k, alunoId: null }),
         };
       }),
@@ -784,9 +842,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       abrirFerias: () => {
         if (!a) return;
         if (a.status === 'ferias') {
-          patchAlunoLocal(a.id, (x) => ({ ...x, status: 'ativo', ferias: 0 }));
-          db.setAlunoStatus(a.id, 'ativo', 0).catch(reportError);
-          showToast(a.nome + ' voltou das férias.');
+          patchAlunoOtimista(a.id, (x) => ({ ...x, status: 'ativo', ferias: 0 }), () => db.setAlunoStatus(a.id, 'ativo', 0), a.nome + ' voltou das férias.');
         } else {
           patchUi({ modal: 'ferias', feriasValor: String(Math.round(a.base / 2)) });
         }
@@ -794,9 +850,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       abrirInativar: () => {
         if (!a) return;
         if (a.status === 'inativo') {
-          patchAlunoLocal(a.id, (x) => ({ ...x, status: 'ativo' }));
-          db.setAlunoStatus(a.id, 'ativo').catch(reportError);
-          showToast(a.nome + ' reativado — histórico intacto.');
+          patchAlunoOtimista(a.id, (x) => ({ ...x, status: 'ativo' }), () => db.setAlunoStatus(a.id, 'ativo'), a.nome + ' reativado — histórico intacto.');
         } else {
           patchUi({ modal: 'inativar' });
         }
@@ -824,17 +878,13 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       confirmarFerias: () => {
         if (!a) return;
         const v = parseInt(S.feriasValor || '0', 10);
-        patchAlunoLocal(a.id, (x) => ({ ...x, status: 'ferias', ferias: v }));
-        db.setAlunoStatus(a.id, 'ferias', v).catch(reportError);
+        patchAlunoOtimista(a.id, (x) => ({ ...x, status: 'ferias', ferias: v }), () => db.setAlunoStatus(a.id, 'ferias', v), 'Férias marcadas — ' + brl(v) + ' descontados de setembro.');
         patchUi({ modal: null });
-        showToast('Férias marcadas — ' + brl(v) + ' descontados de setembro.');
       },
       confirmarInativar: () => {
         if (!a) return;
-        patchAlunoLocal(a.id, (x) => ({ ...x, status: 'inativo' }));
-        db.setAlunoStatus(a.id, 'inativo').catch(reportError);
+        patchAlunoOtimista(a.id, (x) => ({ ...x, status: 'inativo' }), () => db.setAlunoStatus(a.id, 'inativo'), a.nome + ' inativado. Histórico preservado.');
         patchUi({ modal: null });
-        showToast(a.nome + ' inativado. Histórico preservado.');
       },
       semana: nomesSemana,
       diasMes,
@@ -921,10 +971,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       editandoAluno,
       abrirNovoAluno: () => patchUi({ modal: 'alunoForm', editAlunoId: null }),
       abrirEditarAluno: (id: string) => patchUi({ modal: 'alunoForm', editAlunoId: id }),
-      salvarAluno: (payload: AlunoFormPayload) => {
+      salvarAluno: (payload: AlunoFormPayload): Promise<void> => {
         if (!payload.nome.trim()) {
           showToast('Dá um nome pro aluno.');
-          return;
+          return Promise.resolve();
         }
         if (S.editAlunoId) {
           const id = S.editAlunoId;
@@ -944,10 +994,11 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           db.updateAlunoFields(id, campos).catch(reportError);
           showToast(payload.nome + ' atualizado.');
           patchUi({ modal: null, editAlunoId: null });
+          return Promise.resolve();
         } else {
           if (payload.diasSemana.length === 0) {
             showToast('Marca pelo menos um dia da semana das aulas.');
-            return;
+            return Promise.resolve();
           }
           const diasGerados: number[] = [];
           for (let n = 1; n <= 30; n++) if (payload.diasSemana.includes(diaSemanaDe(n))) diasGerados.push(n);
@@ -967,7 +1018,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
             fone: payload.fone,
             desde: payload.desde,
           };
-          db.insertAluno(campos, diasGerados.map((n) => ({ dia: dia2(n), status: 'feita' })), effectiveOwnerId || undefined)
+          return db
+            .insertAluno(campos, diasGerados.map((n) => ({ dia: dia2(n), status: 'feita' })), effectiveOwnerId || undefined)
             .then((novo) => {
               setDomainRaw((s) => ({ ...s, alunos: [...s.alunos, novo] }));
               showToast(payload.nome + ' cadastrado.');
@@ -1069,7 +1121,6 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         showToast('WhatsApp aberto pra ' + cobrando.nome.split(' ')[0] + '.');
       },
       toast: S.toast,
-      temToast: !!S.toast,
       // settings (Ajustes) — sempre do dono efetivo (o personal sendo visualizado, se admin)
       grafico: domain.grafico,
       setGrafico: (v: DomainState['grafico']) => {
