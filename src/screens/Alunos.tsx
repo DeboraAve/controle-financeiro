@@ -1,16 +1,29 @@
 import { useApp } from '../state/AppContext';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Input } from '../components/ui/Field';
+import { ListRow } from '../components/ui/ListRow';
+import { PullToRefresh } from '../components/ui/PullToRefresh';
+import { Stack } from '../components/ui/Stack';
+import { IconeAlunos, TAMANHO_ICONE } from '../components/ui/icons';
 
 export function Alunos() {
-  const { filtros, listaAlunos, busca, setBusca, contagem, abrirNovoAluno, abrirAcademias } = useApp();
+  const { filtros, listaAlunos, busca, setBusca, contagem, abrirNovoAluno, abrirAcademias, recarregar } = useApp();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h2 style={{ fontSize: 29, margin: 0 }}>Alunos</h2>
-        <button className="btn btn-ghost" style={{ padding: 0 }} onClick={abrirAcademias}>Academias</button>
-      </div>
-      <button className="btn btn-primary btn-block" style={{ marginTop: 0 }} onClick={abrirNovoAluno}>+ Novo aluno</button>
-      <input className="input" type="text" placeholder="Buscar aluno" value={busca} onChange={(e) => setBusca(e.target.value)} />
+    <PullToRefresh onRefresh={recarregar}>
+    <Stack gap={3}>
+      <Stack direction="row" justify="space-between" align="baseline">
+        <h2 style={{ fontSize: 'var(--text-2xl)', margin: 0 }}>Alunos</h2>
+        <Button variant="ghost" style={{ padding: 0 }} onClick={abrirAcademias}>
+          Academias
+        </Button>
+      </Stack>
+      <Button variant="primary" block style={{ marginTop: 0 }} onClick={abrirNovoAluno}>
+        + Novo aluno
+      </Button>
+      <Input type="text" placeholder="Buscar aluno" value={busca} onChange={(e) => setBusca(e.target.value)} />
       <div className="seg" style={{ alignSelf: 'flex-start' }}>
         {filtros.map((f) => (
           <label key={f.rotulo} className="seg-opt">
@@ -19,24 +32,34 @@ export function Alunos() {
           </label>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {listaAlunos.map((a) => (
-          <div key={a.id} onClick={a.abrir} className="aluno-row">
-            <div className="avatar-square" style={{ color: a.inicialCor }}>{a.inicial}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 15 }}>{a.nome}</span><span className={a.tagClass}>{a.tagTexto}</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.sub}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16 }}>{a.totalFmt}</div>
-              <div style={{ fontSize: 10, color: a.pagCor }}>{a.pagTexto}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{contagem}</div>
-    </div>
+      {listaAlunos.length === 0 ? (
+        <EmptyState
+          icon={<IconeAlunos size={TAMANHO_ICONE.xl} aria-hidden />}
+          title="Nenhum aluno por aqui"
+          description="Cadastre o primeiro aluno para começar a acompanhar pacotes, agenda e cobrança."
+          actionLabel="Cadastrar primeiro aluno"
+          onAction={abrirNovoAluno}
+        />
+      ) : (
+        <div className="aluno-list">
+          {listaAlunos.map((a) => (
+            <ListRow
+              key={a.id}
+              onClick={a.abrir}
+              avatarText={a.inicial}
+              avatarTone={a.avatarTone}
+              title={a.nome}
+              badge={<Badge tone={a.tagTone}>{a.tagTexto}</Badge>}
+              subtitle={a.sub}
+              trailing={a.totalFmt}
+              trailingSub={a.pagTexto}
+              trailingSubTone={a.pagTone}
+            />
+          ))}
+        </div>
+      )}
+      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{contagem}</div>
+    </Stack>
+    </PullToRefresh>
   );
 }

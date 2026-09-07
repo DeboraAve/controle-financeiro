@@ -1,6 +1,8 @@
 import { useApp } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
 import { BlueprintCard } from '../components/BlueprintCard';
+import { EmptyState } from '../components/ui/EmptyState';
+import { IconeAlunos, TAMANHO_ICONE } from '../components/ui/icons';
 
 export function GestaoPersonais() {
   const { personaisResumo, abrirAjustes } = useApp();
@@ -17,12 +19,11 @@ export function GestaoPersonais() {
       </div>
 
       {personaisResumo.length === 0 && (
-        <BlueprintCard style={{ gap: 'var(--space-2)' }}>
-          <div className="card-kicker">Nenhum personal ainda</div>
-          <div style={{ fontSize: 13, color: 'var(--color-neutral-700)' }}>
-            Assim que alguém criar uma conta pelo app, ela aparece aqui pra você acompanhar.
-          </div>
-        </BlueprintCard>
+        <EmptyState
+          icon={<IconeAlunos size={TAMANHO_ICONE.xl} aria-hidden />}
+          title="Nenhum personal ainda"
+          description="Assim que alguém criar uma conta pelo app, ela aparece aqui pra você acompanhar."
+        />
       )}
 
       {personaisResumo.map((p) => (

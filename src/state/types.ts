@@ -1,4 +1,5 @@
 import type { Academia, Aluno, Despesa, Modal, Tab } from '../data/model';
+import type { Tone } from '../components/ui/tone';
 
 export interface DomainState {
   alunos: Aluno[];
@@ -22,7 +23,7 @@ export interface UiState {
   despDesc: string;
   cobrandoId: string | null;
   msg: string;
-  toast: string | null;
+  toast: { msg: string; tone: Tone } | null;
   diaSel: number | null;
   agendaView: 'semana' | 'mes';
   adminViewingUserId: string | null;

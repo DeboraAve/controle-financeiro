@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { BlueprintCard } from '../components/BlueprintCard';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { Field, Input } from '../components/ui/Field';
+import { Stack } from '../components/ui/Stack';
 import { useAuth } from '../state/AuthContext';
 
 export function Auth() {
@@ -40,39 +43,42 @@ export function Auth() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-body)' }}>
-      <div style={{ width: '100%', maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+    <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, background: 'var(--surface-base)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+      <Stack gap={4} style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center' }}>
-          <div className="eyebrow">Controle financeiro</div>
-          <h1 style={{ fontSize: 32, margin: '6px 0 0' }}>{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</h1>
+          <div className="eyebrow">Impulsa</div>
+          <h1 style={{ fontSize: 'var(--text-3xl)', margin: '6px 0 0' }}>{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</h1>
         </div>
 
-        <BlueprintCard style={{ gap: 'var(--space-3)' }}>
+        <Card style={{ gap: 'var(--space-3)' }}>
           {modo === 'criar' && (
-            <div className="field">
-              <label>Seu nome</label>
-              <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Ricardo Alves" />
-            </div>
+            <Field label="Seu nome">
+              <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Ricardo Alves" />
+            </Field>
           )}
-          <div className="field">
-            <label>E-mail</label>
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
-          </div>
-          <div className="field">
-            <label>Senha</label>
-            <input className="input" type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="••••••••" onKeyDown={(e) => e.key === 'Enter' && submeter()} />
-          </div>
+          <Field label="E-mail">
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+          </Field>
+          <Field label="Senha">
+            <Input
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              placeholder="••••••••"
+              onKeyDown={(e) => e.key === 'Enter' && submeter()}
+            />
+          </Field>
 
-          {erro && <div style={{ fontSize: 12, color: 'var(--color-accent-800)' }}>{erro}</div>}
-          {aviso && <div style={{ fontSize: 12, color: 'var(--color-accent-700)' }}>{aviso}</div>}
+          {erro && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--status-danger)' }}>{erro}</div>}
+          {aviso && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-accent)' }}>{aviso}</div>}
 
-          <button className="btn btn-primary btn-block" onClick={submeter} disabled={enviando}>
-            {enviando ? 'Um instante…' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
-          </button>
-        </BlueprintCard>
+          <Button variant="primary" block onClick={submeter} disabled={enviando} loading={enviando}>
+            {modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+          </Button>
+        </Card>
 
-        <button
-          className="btn btn-ghost"
+        <Button
+          variant="ghost"
           style={{ alignSelf: 'center' }}
           onClick={() => {
             setModo(modo === 'entrar' ? 'criar' : 'entrar');
@@ -81,9 +87,9 @@ export function Auth() {
           }}
         >
           {modo === 'entrar' ? 'Ainda não tem conta? Criar uma' : 'Já tem conta? Entrar'}
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Stack>
+    </main>
   );
 }
 

@@ -1,0 +1,369 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Design tokens — fonte da verdade do sistema visual.
+
+   Paleta e tipografia da Impulsa (proposta Blue Agency, set/2026) —
+   ver docs/design/tokens.md e o PDF em IMPULSA/.
+
+   Duas camadas, e a ordem importa:
+
+   1. PRIMITIVOS — as rampas cruas (--color-neutral-500, --space-3). São
+      valores, não significados. Nunca use um primitivo direto numa tela.
+   2. SEMÂNTICOS — o papel que o valor cumpre (--text-muted, --border-subtle,
+      --status-danger). É a camada que as telas e os componentes consomem.
+
+   O dark mode (Fase 4) redefine a camada semântica inteira — e, como boa
+   parte das telas ainda não migrou pros componentes novos e usa primitivo
+   direto (var(--color-neutral-600), var(--color-bg) etc.), a rampa neutra
+   e os apelidos legados também invertem no escuro. Só a marca (rosa,
+   laranja) fica fixa nas duas. Ver o bloco de dark mode logo abaixo do
+   :root e docs/design/tokens.md.
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ── Primitivos: cor da marca ─────────────────────────────────────────
+     As cinco cores oficiais da Impulsa. Rosa e laranja NUNCA mudam entre
+     temas claro/escuro — é o que ancora a marca em qualquer contexto. */
+  --color-ink: #1b1330;
+  --color-off-white: #fff7f3;
+  --color-pink: #ff3d7f;
+  --color-orange: #ff8a3d;
+  --color-mint: #12d6a6;
+  --color-surface-dark: #2a2140;
+
+  /* Rampas geradas a partir das cores da marca por color-mix — mesma
+     fórmula para as duas famílias, então um degrau de uma combina com o
+     mesmo degrau da outra. 600 é sempre a cor de marca exata. */
+  --color-accent-100: color-mix(in srgb, var(--color-pink) 12%, white);
+  --color-accent-200: color-mix(in srgb, var(--color-pink) 24%, white);
+  --color-accent-300: color-mix(in srgb, var(--color-pink) 40%, white);
+  --color-accent-400: color-mix(in srgb, var(--color-pink) 58%, white);
+  --color-accent-500: color-mix(in srgb, var(--color-pink) 80%, white);
+  --color-accent-600: var(--color-pink);
+  --color-accent-700: color-mix(in srgb, var(--color-pink) 82%, black);
+  --color-accent-800: color-mix(in srgb, var(--color-pink) 70%, black);
+  --color-accent-900: color-mix(in srgb, var(--color-pink) 55%, black);
+
+  --color-accent-2-100: color-mix(in srgb, var(--color-orange) 12%, white);
+  --color-accent-2-200: color-mix(in srgb, var(--color-orange) 24%, white);
+  --color-accent-2-300: color-mix(in srgb, var(--color-orange) 40%, white);
+  --color-accent-2-400: color-mix(in srgb, var(--color-orange) 58%, white);
+  --color-accent-2-500: color-mix(in srgb, var(--color-orange) 80%, white);
+  --color-accent-2-600: var(--color-orange);
+  --color-accent-2-700: color-mix(in srgb, var(--color-orange) 85%, black);
+  --color-accent-2-800: color-mix(in srgb, var(--color-orange) 67%, black);
+  --color-accent-2-900: color-mix(in srgb, var(--color-orange) 55%, black);
+
+  --color-mint-100: color-mix(in srgb, var(--color-mint) 14%, white);
+  --color-mint-600: var(--color-mint);
+  --color-mint-700: color-mix(in srgb, var(--color-mint) 60%, black);
+
+  /* Rampa neutra — não veio no kit da agência, então é derivada entre
+     Ink e Off-white, os dois extremos que a marca já define. */
+  --color-neutral-100: color-mix(in srgb, var(--color-ink) 4%, var(--color-off-white));
+  --color-neutral-200: color-mix(in srgb, var(--color-ink) 10%, var(--color-off-white));
+  --color-neutral-300: color-mix(in srgb, var(--color-ink) 18%, var(--color-off-white));
+  --color-neutral-400: color-mix(in srgb, var(--color-ink) 32%, var(--color-off-white));
+  --color-neutral-500: color-mix(in srgb, var(--color-ink) 48%, var(--color-off-white));
+  --color-neutral-600: color-mix(in srgb, var(--color-ink) 60%, var(--color-off-white));
+  --color-neutral-700: color-mix(in srgb, var(--color-ink) 74%, var(--color-off-white));
+  --color-neutral-800: color-mix(in srgb, var(--color-ink) 86%, var(--color-off-white));
+  --color-neutral-900: color-mix(in srgb, var(--color-ink) 96%, var(--color-off-white));
+
+  /* Papéis herdados — mantidos porque industry.css e as telas ainda não
+     migradas dependem deles. Os semânticos abaixo são a forma preferida. */
+  --color-bg: var(--color-off-white);
+  --color-surface: #ffffff;
+  --color-text: var(--color-ink);
+  --color-accent: var(--color-pink);
+  --color-accent-2: var(--color-orange);
+  --color-divider: color-mix(in srgb, var(--color-ink) 13%, transparent);
+
+  /* ── Primitivos: tipografia ──────────────────────────────────────────
+     Erica One é só para títulos curtos e o logotipo — traço redondo e
+     peso único, "amigável e confiante" no espírito Nubank, mas ilegível
+     em parágrafo ou texto pequeno. Poppins carrega o resto: geométrica,
+     muito legível em tela pequena, com o mesmo tom informal do copy. */
+  --font-display: "Erica One", var(--font-heading);
+  --font-heading: "Poppins", system-ui, sans-serif;
+  --font-heading-weight: 600;
+  --font-body: "Poppins", system-ui, sans-serif;
+
+  /* ── Primitivos: espaçamento ─────────────────────────────────────────
+     Passo de 3.4px. O --space-5 faltava e criava saltos de 4 para 6. */
+  --space-1: 3.4px;
+  --space-2: 6.8px;
+  --space-3: 10.2px;
+  --space-4: 13.6px;
+  --space-5: 17px;
+  --space-6: 20.4px;
+  --space-8: 27.2px;
+  --space-10: 34px;
+  --space-12: 40.8px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 999px;
+
+  /* Elevação — sombras suaves tingidas de tinta, para o card parecer
+     levantar do fundo em vez de estar desenhado sobre ele. */
+  --shadow-sm: 0 1px 3px color-mix(in srgb, var(--color-ink) 10%, transparent);
+  --shadow-md: 0 6px 18px color-mix(in srgb, var(--color-ink) 12%, transparent);
+  --shadow-lg: 0 16px 40px color-mix(in srgb, var(--color-ink) 18%, transparent);
+
+  /* ══════════════════════════════════════════════════════════════════
+     SEMÂNTICOS — o que as telas e os componentes usam.
+     ══════════════════════════════════════════════════════════════════ */
+
+  /* ── Superfícies ─────────────────────────────────────────────────── */
+  --surface-base: var(--color-bg);          /* fundo da aplicação */
+  --surface-raised: var(--color-surface);   /* card, input, dialog */
+  --surface-sunken: var(--color-neutral-200); /* poços, trilhos, skeleton */
+  --surface-overlay: color-mix(in srgb, var(--color-ink) 50%, transparent);
+
+  /* ── Texto ───────────────────────────────────────────────────────── */
+  --text-primary: var(--color-text);
+  --text-secondary: color-mix(in srgb, var(--color-text) 70%, transparent);
+  --text-muted: var(--color-neutral-600);   /* legendas, metadados */
+  --text-disabled: var(--color-neutral-500); /* item inativo, desabilitado */
+  --text-inverse: var(--color-off-white);   /* sobre fundo escuro/accent */
+  --text-accent: var(--color-accent-700);
+
+  /* ── Bordas ──────────────────────────────────────────────────────── */
+  --border-subtle: color-mix(in srgb, var(--color-text) 8%, transparent);
+  --border-default: var(--color-divider);
+  --border-strong: color-mix(in srgb, var(--color-text) 45%, transparent);
+
+  /* ── Marca ───────────────────────────────────────────────────────── */
+  --brand: var(--color-accent-600);
+  --brand-hover: var(--color-accent-700);
+  --brand-active: var(--color-accent-800);
+  --brand-bg: var(--color-accent-100);
+  --brand-on: var(--color-off-white);       /* texto sobre a marca */
+
+  /* ── Status ──────────────────────────────────────────────────────────
+     Segue o próprio mapeamento da Impulsa: rosa também é a cor de
+     cobrança em aberto/atrasada (o kit não define um vermelho de alarme
+     à parte — a instrução da marca é nunca depender só da cor, sempre
+     acompanhar de texto/ícone, o que os componentes já fazem). Laranja
+     é energia/atenção; menta é sucesso. */
+  --status-danger: var(--color-accent-800);
+  --status-danger-bg: var(--color-accent-100);
+  --status-warning: var(--color-accent-2-800);
+  --status-warning-bg: var(--color-accent-2-100);
+  --status-ok: var(--color-mint-700);
+  --status-ok-bg: var(--color-mint-100);
+  --status-neutral: var(--color-neutral-700);
+  --status-neutral-bg: var(--color-neutral-100);
+
+  /* ── Escala tipográfica ──────────────────────────────────────────────
+     Antes: 9, 10, 11, 12, 13, 14, 15, 16, 17, 19, 20, 25, 29, 32 e 42px
+     escritos à mão nas telas. Os fora de escala arredondam para o
+     degrau vizinho (9→10, 19→20, 29→25 ou 32 conforme o peso visual). */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 25px;
+  --text-3xl: 32px;
+  --text-4xl: 42px;
+
+  --leading-tight: 1.12;   /* títulos */
+  --leading-snug: 1.3;     /* rótulos, linhas de lista */
+  --leading-normal: 1.55;  /* corpo */
+
+  --tracking-tight: -0.015em;
+  --tracking-wide: 0.04em;
+  --tracking-caps: 0.1em;  /* eyebrow e rótulo em caixa alta */
+
+  /* ── Movimento ───────────────────────────────────────────────────────
+     Entrada usa --ease-out (rápido no começo, assenta devagar); saída
+     usa --ease-in e uma duração menor — sair deve parecer mais rápido
+     do que entrar. Detalhes em docs/design/movimento.md. */
+  --dur-instant: 100ms;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-slow: 300ms;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Camadas ─────────────────────────────────────────────────────────
+     Antes eram números crus espalhados (tabbar 40, dialog 80, toast 90). */
+  --z-nav: 40;
+  --z-backdrop: 80;
+  --z-sheet: 81;
+  --z-toast: 90;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────────────
+   Três estados possíveis no visitante: escolha explícita clara, escolha
+   explícita escura, ou nenhuma escolha (aí só o SO decide). Por isso duas
+   regras abaixo, não uma — a de @media cobre "sem escolha, SO prefere
+   escuro" e é sempre vencida por uma escolha explícita; a de
+   [data-theme='dark'] é essa escolha explícita (gravada pelo seletor no
+   AjustesModal, ver AppContext). [data-theme='light'] não precisa de
+   bloco próprio: não sobrescrever nada já significa "fica no claro".
+
+   Rosa e laranja (a marca) não aparecem aqui de propósito — são as duas
+   cores que não mudam entre temas. Tudo que muda é derivado de Ink e
+   Off-white: --color-surface-dark (#2A2140, dado pronto pela Impulsa) é a
+   superfície elevada dos cards no escuro.
+
+   As rampas accent/accent-2/neutral são geradas por fórmula (ver o bloco
+   de primitivos acima) misturando o tom da marca com white/black — no
+   escuro essa fórmula espelha (troca white↔black), porque um degrau que
+   era "tingido de branco, pra clarear em cima de fundo claro" precisa
+   virar "tingido de preto, pra escurecer em cima de fundo escuro", e
+   vice-versa. Os status (--status-danger etc.) não seguem essa inversão
+   automática — foram remapeados um por um, porque light/dark não usam o
+   mesmo degrau da rampa (texto escuro-sobre-claro vira texto claro-sobre-
+   escuro, não é só trocar de lado da mesma fórmula). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --color-accent-100: color-mix(in srgb, var(--color-pink) 12%, black);
+    --color-accent-200: color-mix(in srgb, var(--color-pink) 24%, black);
+    --color-accent-300: color-mix(in srgb, var(--color-pink) 40%, black);
+    --color-accent-400: color-mix(in srgb, var(--color-pink) 58%, black);
+    --color-accent-500: color-mix(in srgb, var(--color-pink) 80%, black);
+    --color-accent-700: color-mix(in srgb, var(--color-pink) 85%, white);
+    --color-accent-800: color-mix(in srgb, var(--color-pink) 70%, white);
+    --color-accent-900: color-mix(in srgb, var(--color-pink) 55%, white);
+
+    --color-accent-2-100: color-mix(in srgb, var(--color-orange) 12%, black);
+    --color-accent-2-200: color-mix(in srgb, var(--color-orange) 24%, black);
+    --color-accent-2-300: color-mix(in srgb, var(--color-orange) 40%, black);
+    --color-accent-2-400: color-mix(in srgb, var(--color-orange) 58%, black);
+    --color-accent-2-500: color-mix(in srgb, var(--color-orange) 80%, black);
+    --color-accent-2-700: color-mix(in srgb, var(--color-orange) 85%, white);
+    --color-accent-2-800: color-mix(in srgb, var(--color-orange) 70%, white);
+    --color-accent-2-900: color-mix(in srgb, var(--color-orange) 55%, white);
+
+    --color-neutral-100: color-mix(in srgb, var(--color-off-white) 4%, var(--color-ink));
+    --color-neutral-200: color-mix(in srgb, var(--color-off-white) 10%, var(--color-ink));
+    --color-neutral-300: color-mix(in srgb, var(--color-off-white) 18%, var(--color-ink));
+    --color-neutral-400: color-mix(in srgb, var(--color-off-white) 32%, var(--color-ink));
+    --color-neutral-500: color-mix(in srgb, var(--color-off-white) 46%, var(--color-ink));
+    --color-neutral-600: color-mix(in srgb, var(--color-off-white) 60%, var(--color-ink));
+    --color-neutral-700: color-mix(in srgb, var(--color-off-white) 74%, var(--color-ink));
+    --color-neutral-800: color-mix(in srgb, var(--color-off-white) 86%, var(--color-ink));
+    --color-neutral-900: color-mix(in srgb, var(--color-off-white) 96%, var(--color-ink));
+
+    --color-bg: var(--color-ink);
+    --color-surface: var(--color-surface-dark);
+    --color-text: var(--color-off-white);
+    --color-divider: color-mix(in srgb, var(--color-off-white) 16%, transparent);
+
+    --surface-base: var(--color-bg);
+    --surface-raised: var(--color-surface);
+    --surface-sunken: var(--color-neutral-200);
+    --surface-overlay: color-mix(in srgb, black 60%, transparent);
+
+    --text-primary: var(--color-text);
+    --text-muted: var(--color-neutral-600);
+    --text-disabled: var(--color-neutral-500);
+    --text-inverse: var(--color-ink);
+    --text-accent: var(--color-accent-800);
+
+    --border-default: var(--color-divider);
+
+    --status-danger: var(--color-accent-800);
+    --status-danger-bg: color-mix(in srgb, var(--color-pink) 20%, var(--color-ink));
+    --status-warning: var(--color-accent-2-800);
+    --status-warning-bg: color-mix(in srgb, var(--color-orange) 20%, var(--color-ink));
+    --status-ok: var(--color-mint);
+    --status-ok-bg: color-mix(in srgb, var(--color-mint) 18%, var(--color-ink));
+    --status-neutral: var(--color-neutral-700);
+    --status-neutral-bg: var(--color-neutral-100);
+  }
+}
+
+/* Mesmas regras — escolha explícita do seletor no Ajustes ganha do SO. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-accent-100: color-mix(in srgb, var(--color-pink) 12%, black);
+  --color-accent-200: color-mix(in srgb, var(--color-pink) 24%, black);
+  --color-accent-300: color-mix(in srgb, var(--color-pink) 40%, black);
+  --color-accent-400: color-mix(in srgb, var(--color-pink) 58%, black);
+  --color-accent-500: color-mix(in srgb, var(--color-pink) 80%, black);
+  --color-accent-700: color-mix(in srgb, var(--color-pink) 85%, white);
+  --color-accent-800: color-mix(in srgb, var(--color-pink) 70%, white);
+  --color-accent-900: color-mix(in srgb, var(--color-pink) 55%, white);
+
+  --color-accent-2-100: color-mix(in srgb, var(--color-orange) 12%, black);
+  --color-accent-2-200: color-mix(in srgb, var(--color-orange) 24%, black);
+  --color-accent-2-300: color-mix(in srgb, var(--color-orange) 40%, black);
+  --color-accent-2-400: color-mix(in srgb, var(--color-orange) 58%, black);
+  --color-accent-2-500: color-mix(in srgb, var(--color-orange) 80%, black);
+  --color-accent-2-700: color-mix(in srgb, var(--color-orange) 85%, white);
+  --color-accent-2-800: color-mix(in srgb, var(--color-orange) 70%, white);
+  --color-accent-2-900: color-mix(in srgb, var(--color-orange) 55%, white);
+
+  --color-neutral-100: color-mix(in srgb, var(--color-off-white) 4%, var(--color-ink));
+  --color-neutral-200: color-mix(in srgb, var(--color-off-white) 10%, var(--color-ink));
+  --color-neutral-300: color-mix(in srgb, var(--color-off-white) 18%, var(--color-ink));
+  --color-neutral-400: color-mix(in srgb, var(--color-off-white) 32%, var(--color-ink));
+  --color-neutral-500: color-mix(in srgb, var(--color-off-white) 46%, var(--color-ink));
+  --color-neutral-600: color-mix(in srgb, var(--color-off-white) 60%, var(--color-ink));
+  --color-neutral-700: color-mix(in srgb, var(--color-off-white) 74%, var(--color-ink));
+  --color-neutral-800: color-mix(in srgb, var(--color-off-white) 86%, var(--color-ink));
+  --color-neutral-900: color-mix(in srgb, var(--color-off-white) 96%, var(--color-ink));
+
+  --color-bg: var(--color-ink);
+  --color-surface: var(--color-surface-dark);
+  --color-text: var(--color-off-white);
+  --color-divider: color-mix(in srgb, var(--color-off-white) 16%, transparent);
+
+  --surface-base: var(--color-bg);
+  --surface-raised: var(--color-surface);
+  --surface-sunken: var(--color-neutral-200);
+  --surface-overlay: color-mix(in srgb, black 60%, transparent);
+
+  --text-primary: var(--color-text);
+  --text-muted: var(--color-neutral-600);
+  --text-disabled: var(--color-neutral-500);
+  --text-inverse: var(--color-ink);
+  --text-accent: var(--color-accent-800);
+
+  --border-default: var(--color-divider);
+
+  --status-danger: var(--color-accent-800);
+  --status-danger-bg: color-mix(in srgb, var(--color-pink) 20%, var(--color-ink));
+  --status-warning: var(--color-accent-2-800);
+  --status-warning-bg: color-mix(in srgb, var(--color-orange) 20%, var(--color-ink));
+  --status-ok: var(--color-mint);
+  --status-ok-bg: color-mix(in srgb, var(--color-mint) 18%, var(--color-ink));
+  --status-neutral: var(--color-neutral-700);
+  --status-neutral-bg: var(--color-neutral-100);
+}
+
+/* Respeita quem pediu menos movimento no sistema: as durações zeram e
+   toda transição/animação vira instantânea, sem precisar de guarda em
+   cada componente. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
