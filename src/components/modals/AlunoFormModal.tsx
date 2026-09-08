@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp, type AlunoFormPayload } from '../../state/AppContext';
-import { BlueprintCard } from '../BlueprintCard';
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
 import { IconeCarregando } from '../ui/icons';
 
 const PLANO_TIPOS = ['Pacote', 'Mensalidade fixa'] as const;
@@ -54,8 +55,6 @@ export function AlunoFormModal() {
     }
   }, [modalAlunoForm, editandoAluno]);
 
-  if (!modalAlunoForm) return null;
-
   const toggleDia = (v: number) => {
     setDiasSemana((s) => (s.includes(v) ? s.filter((d) => d !== v) : [...s, v]));
   };
@@ -84,101 +83,102 @@ export function AlunoFormModal() {
   };
 
   return (
-    <div className="dialog-backdrop" style={{ zIndex: 85 }}>
-      <BlueprintCard className="dialog" style={{ background: 'var(--color-bg)' }}>
-        <div className="dialog-title">{editandoAluno ? 'Editar aluno' : 'Novo aluno'}</div>
+    <Modal
+      open={modalAlunoForm}
+      onClose={fecharModal}
+      title={editandoAluno ? 'Editar aluno' : 'Novo aluno'}
+      actions={
+        <>
+          <Button variant="secondary" onClick={fecharModal} disabled={salvando}>Cancelar</Button>
+          <Button variant="primary" onClick={salvar} disabled={salvando}>
+            {salvando ? <IconeCarregando size={16} className="spin" aria-hidden /> : editandoAluno ? 'Salvar' : 'Cadastrar'}
+          </Button>
+        </>
+      }
+    >
+      <div className="field">
+        <label>Nome</label>
+        <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Marina Duarte" />
+      </div>
 
-        <div className="field">
-          <label>Nome</label>
-          <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Marina Duarte" />
+      <div className="field">
+        <label>Academia</label>
+        <select className="input" value={academiaId} onChange={(e) => setAcademiaId(e.target.value)}>
+          <option value="">Sem academia / estúdio próprio</option>
+          {academiasOptions.map((ac) => (
+            <option key={ac.id} value={ac.id}>{ac.nome}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label>Tipo de cobrança</label>
+        <div className="seg" style={{ display: 'flex' }}>
+          {PLANO_TIPOS.map((t) => (
+            <label key={t} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
+              <input type="radio" name="planoTipo" checked={planoTipo === t} onChange={() => setPlanoTipo(t)} />
+              <span>{t}</span>
+            </label>
+          ))}
         </div>
+      </div>
 
-        <div className="field">
-          <label>Academia</label>
-          <select className="input" value={academiaId} onChange={(e) => setAcademiaId(e.target.value)}>
-            <option value="">Sem academia / estúdio próprio</option>
-            {academiasOptions.map((ac) => (
-              <option key={ac.id} value={ac.id}>{ac.nome}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="field">
-          <label>Tipo de cobrança</label>
-          <div className="seg" style={{ display: 'flex' }}>
-            {PLANO_TIPOS.map((t) => (
-              <label key={t} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
-                <input type="radio" name="planoTipo" checked={planoTipo === t} onChange={() => setPlanoTipo(t)} />
-                <span>{t}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {editandoAluno ? (
-          <>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <div className="field" style={{ flex: 1 }}>
-                <label>Valor do pacote (R$)</label>
-                <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
-              </div>
-              <div className="field" style={{ flex: 1 }}>
-                <label>Nº de aulas previstas</label>
-                <input className="input" value={aulasPrevistas} onChange={(e) => setAulasPrevistas(e.target.value.replace(/[^\d]/g, ''))} placeholder="8" />
-              </div>
-            </div>
-            <div className="field">
-              <label>Horário</label>
-              <input className="input" value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: Ter · Qui 07h" />
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="field">
+      {editandoAluno ? (
+        <>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <div className="field" style={{ flex: 1 }}>
               <label>Valor do pacote (R$)</label>
               <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
             </div>
-            <div className="field">
-              <label>Dias da semana das aulas</label>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {DIAS_SEMANA.map((d) => (
-                  <div
-                    key={d.v}
-                    onClick={() => toggleDia(d.v)}
-                    className={'tag ' + (diasSemana.includes(d.v) ? 'tag-accent' : 'tag-outline')}
-                    style={{ cursor: 'pointer', flex: 1, justifyContent: 'center', fontFamily: 'var(--font-heading)' }}
-                  >
-                    {d.l}
-                  </div>
-                ))}
-              </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Nº de aulas previstas</label>
+              <input className="input" value={aulasPrevistas} onChange={(e) => setAulasPrevistas(e.target.value.replace(/[^\d]/g, ''))} placeholder="8" />
             </div>
-            <div className="field">
-              <label>Horário (opcional)</label>
-              <input className="input" value={horaTexto} onChange={(e) => setHoraTexto(e.target.value)} placeholder="Ex.: 07h" />
+          </div>
+          <div className="field">
+            <label>Horário</label>
+            <input className="input" value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: Ter · Qui 07h" />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="field">
+            <label>Valor do pacote (R$)</label>
+            <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+          </div>
+          <div className="field">
+            <label>Dias da semana das aulas</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {DIAS_SEMANA.map((d) => (
+                <div
+                  key={d.v}
+                  onClick={() => toggleDia(d.v)}
+                  className={'tag ' + (diasSemana.includes(d.v) ? 'tag-accent' : 'tag-outline')}
+                  style={{ cursor: 'pointer', flex: 1, justifyContent: 'center', fontFamily: 'var(--font-heading)' }}
+                >
+                  {d.l}
+                </div>
+              ))}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{previaTexto}</div>
-          </>
-        )}
-
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Telefone</label>
-            <input className="input" value={fone} onChange={(e) => setFone(e.target.value)} placeholder="(11) 9 0000-0000" />
           </div>
-          <div className="field" style={{ flex: 1 }}>
-            <label>Aluno desde</label>
-            <input className="input" value={desde} onChange={(e) => setDesde(e.target.value)} placeholder="Ex.: mar/24" />
+          <div className="field">
+            <label>Horário (opcional)</label>
+            <input className="input" value={horaTexto} onChange={(e) => setHoraTexto(e.target.value)} placeholder="Ex.: 07h" />
           </div>
-        </div>
+          <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{previaTexto}</div>
+        </>
+      )}
 
-        <div className="dialog-actions">
-          <button className="btn btn-secondary" onClick={fecharModal} disabled={salvando}>Cancelar</button>
-          <button className="btn btn-primary" style={{ marginTop: 0 }} onClick={salvar} disabled={salvando}>
-            {salvando ? <IconeCarregando size={16} className="spin" aria-hidden /> : editandoAluno ? 'Salvar' : 'Cadastrar'}
-          </button>
+      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Telefone</label>
+          <input className="input" value={fone} onChange={(e) => setFone(e.target.value)} placeholder="(11) 9 0000-0000" />
         </div>
-      </BlueprintCard>
-    </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Aluno desde</label>
+          <input className="input" value={desde} onChange={(e) => setDesde(e.target.value)} placeholder="Ex.: mar/24" />
+        </div>
+      </div>
+    </Modal>
   );
 }

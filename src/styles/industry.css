@@ -224,6 +224,12 @@ textarea.input { min-height: 90px; resize: vertical; }
   width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
   padding: var(--space-4); border-radius: var(--radius-lg);
   background: var(--color-surface); box-shadow: var(--shadow-lg);
+  /* Sem isso, um formulário comprido (avaliação física, cadastro de
+     aluno) cresce além da viewport no desktop sem jeito de rolar até o
+     botão de ação — a versão mobile já tinha esse cuidado via
+     max-height do sheet, faltava aqui. */
+  max-height: 85vh;
+  overflow-y: auto;
 }
 .dialog[data-phase="entering"] { animation: dialog-in var(--dur-base) var(--ease-out); }
 .dialog[data-phase="exiting"] { animation: dialog-out var(--dur-fast) var(--ease-in) forwards; }
