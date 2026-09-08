@@ -24,9 +24,18 @@ A categoria "PWA" que o PRD cita foi descontinuada pelo próprio Lighthouse — 
 1. **Performance mobile 89 → 91.** A fonte do Google Fonts entrava via `@import` dentro do CSS — isso cria uma cadeia de rede de 4 níveis (HTML → bundle CSS → CSS do Google Fonts → arquivo da fonte), **100% bloqueante**, porque o `@import` só é descoberto depois que o navegador baixa E interpreta o CSS inteiro. Troquei por `<link rel="preconnect">` + `<link rel="stylesheet">` direto no `index.html` (ver [`index.html`](../../index.html)) — os dois primeiros níveis agora saem em paralelo com o CSS principal.
 2. **Accessibility mobile 98 → 100.** Dois problemas: `<html lang="en">` num app inteiro em português (agora `lang="pt-BR"`), e nenhum elemento `<main>` na página — nem na tela de Auth (a que a auditoria via, sem sessão) nem no shell pós-login. Os dois corrigidos.
 
-### Achado registrado, não corrigido — code-splitting
+### Code-splitting — feito numa rodada seguinte
 
-"Reduce unused JavaScript" aponta ~72% do bundle principal sem uso no primeiro carregamento (React + todas as telas + todos os modais chegam juntos, mas só a tela de Auth roda de fato antes do login). Isso é esperado numa SPA sem lazy-loading, mas dá pra melhorar dividindo `Painel`/`Alunos`/`Agenda`/`Caixa`/os modais grandes via `React.lazy` — não fiz porque é uma mudança de arquitetura mais ampla (toca em como cada tela é importada e exige testar todo o app de novo), não um ajuste pontual de QA. **Registro aqui como recomendação para uma rodada futura**, não como algo pendente desta.
+"Reduce unused JavaScript" apontava ~72% do bundle principal sem uso no primeiro carregamento (React + todas as telas + todos os modais chegavam juntos, mas só a tela de Auth roda de fato antes do login). Dividido em duas partes:
+
+- **`AuthenticatedApp.tsx`** — tudo que só existe depois do login (`AppContext`, as telas, os 11 modais) virou um chunk carregado sob demanda (`React.lazy`), só depois da sessão confirmar. Quem está na tela de Auth não baixa mais nada disso.
+- **As 7 telas** (Painel, Alunos, AlunoDetalhe, Agenda, Caixa, Cobrança, GestãoPersonais) — cada uma virou seu próprio chunk dentro do shell pós-login, carregada só quando visitada.
+
+Os modais ficaram de fora de propósito: eles precisam continuar montados durante a própria animação de saída (Fase 2), então já ficam sempre presentes na árvore — dividir o código deles não economizaria nada, só atrasaria a primeira abertura de cada um.
+
+Resultado: bundle inicial (o que carrega antes do login) caiu de 516 KB pra 420 KB — confirmado com requisições de rede reais, não só o tamanho do arquivo: nenhum chunk de tela ou do shell pós-login chega ao navegador enquanto não há sessão. Performance no Lighthouse ficou estável (91) — o ganho aparece na conexão lenta de quem ainda nem logou, não no score em si, que já estava dominado pelo carregamento da fonte.
+
+**Um bug real apareceu no meio do caminho** (não relacionado ao code-splitting em si, só evidenciado pelo Lighthouse rodando de novo): o `.btn-primary` usava `var(--color-bg)` pra cor do texto — um token que *muda* de tema — sobre `--brand-solid`, que foi feito de propósito pra *não* mudar (é o ajuste da correção do botão, acima). No escuro, isso virava texto cor de tinta sobre o rosa, 3.69:1. Trocado pra `--brand-on`, o token fixo certo — 4.55:1 nos dois temas, confirmado.
 
 ## Contraste (WCAG AA — 4.5:1 texto normal, 3:1 texto grande/UI)
 
