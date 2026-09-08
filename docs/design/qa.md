@@ -41,11 +41,11 @@ Calculado nos dois temas, em cima dos tokens reais (`tokens.css`).
 | **Status "cobrado"/aviso / fundo** | **4.28 (só grande) → 4.61:1 ✓** | 9.73:1 ✓ |
 | **Chip "cobrado"/laranja (texto+fundo)** | **4.10 → 4.41 (só texto grande/UI)** | 10.11:1 ✓ |
 | Texto desabilitado / fundo | 2.99 → 3.17 (só grande/UI — aceitável, é o papel de "desabilitado") | 4.42 (só grande/UI) |
-| **Texto branco no botão rosa (marca)** | **3.19:1 — abaixo de 4.5, NÃO CORRIGIDO** | 3.19:1 — idem |
+| **Texto branco no botão rosa (marca)** | **3.19:1 ✗ → 4.55:1 ✓** | **3.19:1 ✗ → 4.55:1 ✓** |
 
-**Três ajustes feitos** em `tokens.css` (só as fórmulas de `color-mix` que são minhas, não valores da marca): o menta usado como texto de "pago" estava claro demais (78% de mistura → 60%), o tom de link/accent e o de aviso/laranja precisavam de um empurrão pequeno (85%→82% e 70%→67%). Recalculei os percentuais mínimos matematicamente em vez de tentar valores no escuro — cada um sobe pro limiar exato do AA sem escurecer mais que o necessário.
+**Quatro ajustes feitos** em `tokens.css`: três nas fórmulas de `color-mix` que são minhas, não valores da marca — o menta usado como texto de "pago" estava claro demais (78% de mistura → 60%), o tom de link/accent e o de aviso/laranja precisavam de um empurrão pequeno (85%→82% e 70%→67%). Recalculei os percentuais mínimos matematicamente em vez de tentar valores no escuro — cada um sobe pro limiar exato do AA sem escurecer mais que o necessário.
 
-**Um item fica sem correção, de propósito:** o texto branco sobre o botão rosa da marca (`--brand-on` sobre `--brand`) mede 3.19:1 — abaixo do 4.5:1 que WCAG AA pede pra texto normal (o texto do botão, ~14px em negrito, não é grande o bastante pra cair na regra dos 3:1). A causa é o próprio rosa `#FF3D7F` definido pela Blue Agency — pra resolver de verdade, ou o rosa escurece (mexe na identidade visual aprovada) ou o texto do botão vira **preto** em vez de branco (mexe no visual de todo botão primário do app). As duas são decisões de marca/design, não um ajuste técnico — **por isso não mudei sozinho**, só registro aqui pra você decidir. Pra contexto: é uma tensão comum em marcas de cor vibrante e saturada (o Nubank tem o mesmo tipo de trade-off com o roxo `#820AD1`).
+**O quarto era uma decisão de marca — resolvido com a Débora, não por conta própria.** O texto branco sobre o botão rosa (`--brand-on` sobre `--brand` puro) media 3.19:1. Apresentei as duas correções possíveis (escurecer só o fundo do botão, ou trocar o texto pra tinta) com uma comparação visual lado a lado antes de mexer em qualquer coisa. Ela escolheu escurecer o fundo. Criado `--brand-solid` (`#D13268`, fixo nos dois temas — o botão não deve trocar de cor junto com claro/escuro) só para essas duas superfícies que preenchem sólido com texto claro em cima (`.btn-primary`, `.seg-opt` marcado); `--brand`/`--color-pink` continuam exatos em todo o resto — logo, ícone ativo do menu, link, eyebrow. 4.55:1 nos dois temas.
 
 ## Navegação por teclado
 
@@ -64,6 +64,6 @@ Calculado nos dois temas, em cima dos tokens reais (`tokens.css`).
 |---|---|
 | Performance ≥ 90 | ✅ 91 mobile / 99 desktop |
 | PWA 100 | Categoria não existe mais no Lighthouse — checagens individuais (manifesto, ícones, service worker) passam |
-| Contraste AA nos dois temas | ✅ com uma exceção documentada (texto sobre botão da marca — decisão de marca pendente) |
+| Contraste AA nos dois temas | ✅ todos os pares corrigidos, incluindo o botão da marca (decisão da Débora: escurecer só o fundo) |
 | Navegação por teclado (tab order, foco visível, Esc fecha modal) | ✅ — achado e corrigido o focus trap que faltava |
 | 3 dispositivos reais | ⚠️ substituído por emulação — recomendo validar em hardware real antes de encerrar o PRD |

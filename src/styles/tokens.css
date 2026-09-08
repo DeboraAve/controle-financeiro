@@ -32,6 +32,19 @@
   --color-mint: #12d6a6;
   --color-surface-dark: #2a2140;
 
+  /* --color-pink "puro" fica só pra logo/identidade (nunca muda). Onde o
+     rosa preenche uma superfície sólida com texto claro em cima (botão
+     primário, opção selecionada de um seletor), o par branco-sobre-rosa
+     puro mede 3.19:1 — abaixo do 4.5:1 que o WCAG AA pede pra texto
+     normal (achado em docs/design/qa.md). Esta é a correção que a
+     Débora aprovou: só a cor de fundo desses elementos escurece; a marca
+     em si (logo, ícone ativo do menu) continua com --color-pink exato.
+     Fixo nos dois temas de propósito — o botão não deve trocar de cor
+     junto com claro/escuro, só o fundo ao redor dele muda. */
+  --color-pink-solido: #d13268;
+  --color-pink-solido-hover: #bd2d5e;
+  --color-pink-solido-active: #a82854;
+
   /* Rampas geradas a partir das cores da marca por color-mix — mesma
      fórmula para as duas famílias, então um degrau de uma combina com o
      mesmo degrau da outra. 600 é sempre a cor de marca exata. */
@@ -142,6 +155,13 @@
   --brand-active: var(--color-accent-800);
   --brand-bg: var(--color-accent-100);
   --brand-on: var(--color-off-white);       /* texto sobre a marca */
+
+  /* Fundo sólido com --brand-on em cima (botão primário, seletor
+     marcado) — usa o rosa ajustado, não --brand puro. Ver primitivo
+     --color-pink-solido acima. */
+  --brand-solid: var(--color-pink-solido);
+  --brand-solid-hover: var(--color-pink-solido-hover);
+  --brand-solid-active: var(--color-pink-solido-active);
 
   /* ── Status ──────────────────────────────────────────────────────────
      Segue o próprio mapeamento da Impulsa: rosa também é a cor de

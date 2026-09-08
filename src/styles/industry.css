@@ -68,9 +68,13 @@ figcaption {
 }
 .btn svg { display: block; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--color-accent); color: var(--color-bg); }
-.btn-primary:hover { background: var(--color-accent-600); }
-.btn-primary:active { background: var(--color-accent-700); }
+/* --brand-solid, não --color-accent puro: texto claro sobre o rosa da
+   marca sem ajuste mede 3.19:1, abaixo do 4.5:1 do WCAG AA (docs/design/qa.md).
+   De quebra, corrige um :hover que não fazia nada — accent-600 é
+   idêntico a --color-accent, então o hover trocava a cor por ela mesma. */
+.btn-primary { background: var(--brand-solid); color: var(--color-bg); }
+.btn-primary:hover { background: var(--brand-solid-hover); }
+.btn-primary:active { background: var(--brand-solid-active); }
 .btn-secondary { border-color: var(--color-divider); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
@@ -119,7 +123,7 @@ textarea.input { min-height: 90px; resize: vertical; }
   padding: 7px 12px; font-size: 13px; cursor: pointer;
 }
 .seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
-.seg-opt:has(input:checked) { background: var(--color-accent); color: var(--color-bg); }
+.seg-opt:has(input:checked) { background: var(--brand-solid); color: var(--color-bg); }
 .seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
 
