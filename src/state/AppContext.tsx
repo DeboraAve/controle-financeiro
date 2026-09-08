@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { flushSync } from 'react-dom';
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
 import { ACADEMIA_MODELOS, CATS, dia2, iniciais } from '../data/seed';
-import { brl, calc } from '../lib/calc';
+import { brl, calc, diaVencimentoDe } from '../lib/calc';
 import { calcularAvaliacao, calcularRcq } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
@@ -426,6 +426,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         : a.status === 'inativo'
           ? { tagClass: 'tag tag-neutral', tagTexto: 'Inativo' }
           : { tagClass: 'tag tag-accent', tagTexto: 'Ativo' };
+    // Vencimento é por aluno (dia extraído de `desde`) desde que a Débora
+    // aprovou isso — cadastro antigo sem data completa ainda não tem dia
+    // próprio, então cai no genérico da config global até ser editado.
+    const diaVencimentoTexto = (a: Aluno) => String(diaVencimentoDe(a.desde) ?? prazo).padStart(2, '0');
     const pagDe = (a: Aluno) =>
       a.pag === 'pago'
         ? { pagTexto: 'pago', pagCor: 'var(--color-neutral-600)' }
@@ -433,7 +437,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           ? { pagTexto: (a.atraso || prazo) + ' dias em atraso', pagCor: 'var(--color-accent-800)' }
           : a.pag === 'cobrado'
             ? { pagTexto: 'cobrado hoje', pagCor: 'var(--color-accent-700)' }
-            : { pagTexto: 'vence dia ' + String(prazo).padStart(2, '0'), pagCor: 'var(--color-neutral-600)' };
+            : { pagTexto: 'vence dia ' + diaVencimentoTexto(a), pagCor: 'var(--color-neutral-600)' };
 
     const visiveis = domain.alunos.filter((a) => {
       const okF =
@@ -1086,7 +1090,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
             detalhe: x.plano + ' · ' + (c.canceladas ? c.canceladas + ' cancelada(s) já descontada(s)' : 'pacote cheio'),
             borda: atrasadoX ? 'var(--color-accent)' : 'var(--color-divider)',
             tagClass: 'tag ' + (atrasadoX ? 'tag-accent' : x.pag === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
-            tagTexto: atrasadoX ? (x.atraso || 5) + ' dias' : x.pag === 'cobrado' ? 'cobrado hoje' : 'vence dia ' + String(prazo).padStart(2, '0'),
+            tagTexto: atrasadoX ? (x.atraso || 5) + ' dias' : x.pag === 'cobrado' ? 'cobrado hoje' : 'vence dia ' + diaVencimentoTexto(x),
             botao: x.pag === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
             cobrar: () =>
               patchUi({

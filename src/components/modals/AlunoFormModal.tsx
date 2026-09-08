@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useApp, type AlunoFormPayload } from '../../state/AppContext';
+import { diaVencimentoDe } from '../../lib/calc';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { IconeCarregando } from '../ui/icons';
+
+const hoje = new Date().toISOString().slice(0, 10);
 
 const PLANO_TIPOS = ['Pacote', 'Mensalidade fixa'] as const;
 const DIAS_SEMANA = [
@@ -58,6 +61,8 @@ export function AlunoFormModal() {
   const toggleDia = (v: number) => {
     setDiasSemana((s) => (s.includes(v) ? s.filter((d) => d !== v) : [...s, v]));
   };
+
+  const desdeEhAntigo = !!editandoAluno && desde !== '' && diaVencimentoDe(desde) === null;
 
   const previaTexto = editandoAluno
     ? ''
@@ -176,9 +181,14 @@ export function AlunoFormModal() {
         </div>
         <div className="field" style={{ flex: 1 }}>
           <label>Aluno desde</label>
-          <input className="input" value={desde} onChange={(e) => setDesde(e.target.value)} placeholder="Ex.: mar/24" />
+          <input className="input" type="date" value={desde} max={hoje} onChange={(e) => setDesde(e.target.value)} />
         </div>
       </div>
+      {desdeEhAntigo && (
+        <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
+          Cadastro antigo, sem dia definido ({desde || 'em branco'}) — escolhe uma data pra esse aluno ganhar vencimento próprio, em vez do dia genérico da configuração geral.
+        </div>
+      )}
     </Modal>
   );
 }

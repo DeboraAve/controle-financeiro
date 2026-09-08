@@ -68,7 +68,7 @@ export function AjustesModal() {
             />
           </div>
           <div className="field">
-            <label>Dias até virar atraso</label>
+            <label>Dias de carência após o vencimento</label>
             <input
               className="input"
               type="number"
@@ -77,6 +77,9 @@ export function AjustesModal() {
               value={diasParaAtraso}
               onChange={(e) => setDiasParaAtraso(Math.max(1, parseInt(e.target.value || '1', 10)))}
             />
+            <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
+              Usado só nos cadastros antigos que ainda não têm vencimento próprio — vira o dia genérico de "vence dia X" deles até você reabrir e escolher a data.
+            </div>
           </div>
         </>
       )}

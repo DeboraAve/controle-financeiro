@@ -1,6 +1,7 @@
 import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 import { EvolucaoChart } from '../components/EvolucaoChart';
+import { formatarDesde } from '../lib/calc';
 
 export function AlunoDetalhe() {
   const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao } = useApp();
@@ -22,7 +23,7 @@ export function AlunoDetalhe() {
           <h2 style={{ fontSize: 29, margin: 0 }}>{aluno.nome}</h2>
           <span className={aluno.tagClass}>{aluno.tagTexto}</span>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{aluno.sub} · aluno desde {aluno.desde}</div>
+        <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{aluno.sub} · aluno desde {formatarDesde(aluno.desde)}</div>
       </div>
 
       <BlueprintCard style={{ gap: 'var(--space-2)' }}>
