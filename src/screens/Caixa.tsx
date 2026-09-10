@@ -75,12 +75,17 @@ export function Caixa() {
           <button className="btn btn-ghost" style={{ padding: 0, fontSize: 11 }} onClick={abrirAcademias}>gerenciar</button>
         </div>
         {academiasResumo.filter((ac) => ac.nAtivos > 0).map((ac) => (
-          <div key={ac.id} style={{ display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 7 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14 }}>{ac.nome}</div>
-              <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{ac.modeloTexto} · {ac.nAtivos} aluno(s)</div>
+          <div key={ac.id} style={{ display: 'flex', flexDirection: 'column', gap: 3, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 7%, transparent)', paddingBottom: 7 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14 }}>{ac.nome}</div>
+                <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{ac.modeloTexto} · {ac.nAtivos} aluno(s)</div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14 }}>− {ac.custoMensalFmt}</div>
             </div>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 14 }}>− {ac.custoMensalFmt}</div>
+            <div style={{ fontSize: 11, color: ac.lucroPositivo ? 'var(--color-neutral-600)' : 'var(--color-accent-700)' }}>
+              recebe {ac.receitaFmt} dos alunos de lá · {ac.lucroPositivo ? 'sobra' : 'falta'} {ac.lucroFmt.replace('R$ -', 'R$ ')}
+            </div>
           </div>
         ))}
         {academiasResumo.filter((ac) => ac.nAtivos > 0).length === 0 && (

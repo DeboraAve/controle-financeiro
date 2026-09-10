@@ -43,6 +43,12 @@ export function AlunoDetalhe() {
         </div>
       </BlueprintCard>
 
+      {aluno.impactoPerderTexto && (
+        <div style={{ fontSize: 12, color: 'var(--color-neutral-700)', background: 'var(--color-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+          {aluno.impactoPerderTexto}
+        </div>
+      )}
+
       <BlueprintCard style={{ gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <div className="card-kicker">Aulas do mês</div>

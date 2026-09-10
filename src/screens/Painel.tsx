@@ -11,7 +11,7 @@ function iniciaisDe(nome: string | undefined, email: string | undefined): string
 }
 
 export function Painel() {
-  const { resumo, meses, viz, topAlunos, irCobranca, abrirAjustes } = useApp();
+  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes } = useApp();
   const { session } = useAuth();
   const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
@@ -61,6 +61,21 @@ export function Painel() {
           <div className="stat-sub">{resumo.atrasados} aluno(s)</div>
         </div>
       </div>
+
+      {vencimentoFaixas.length > 0 && (
+        <BlueprintCard style={{ gap: 'var(--space-3)' }}>
+          <div className="card-kicker">Vencimento ao longo do mês</div>
+          {vencimentoFaixas.map((f) => (
+            <div key={f.rotulo} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <span>dia {f.rotulo}</span>
+                <span style={{ fontFamily: 'var(--font-heading)' }}>{f.totalFmt} · {f.qtd} aluno(s)</span>
+              </div>
+              <div style={{ height: 5, background: 'var(--color-neutral-200)' }}><div style={{ height: '100%', background: 'var(--color-accent)', width: `${f.pct}%` }} /></div>
+            </div>
+          ))}
+        </BlueprintCard>
+      )}
 
       <BlueprintCard style={{ gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

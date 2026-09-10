@@ -77,6 +77,7 @@ export interface AlunoDetalheVm {
   acaoPagamentoTexto: string;
   acaoPagamento: () => void;
   media: string;
+  impactoPerderTexto: string | null;
   historico: { mes: string; nota: string; valor: string }[];
   sessoes: {
     id: string;
@@ -395,6 +396,35 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const canceladasTotais = ativos.reduce((t, a) => t + calcs.get(a.id)!.canceladas, 0);
     const emAtraso = ativos.filter((a) => a.pag === 'atrasado');
 
+    // Quando o dinheiro entra de verdade, não só quanto — separa os alunos
+    // ativos em faixas do dia de vencimento. Cadastro antigo sem data
+    // completa (ver diaVencimentoDe) cai numa faixa "sem data" à parte,
+    // em vez de ser descartado da conta.
+    const vencimentoFaixas = (() => {
+      const faixas = [
+        { rotulo: '1–10', min: 1, max: 10, qtd: 0, total: 0 },
+        { rotulo: '11–20', min: 11, max: 20, qtd: 0, total: 0 },
+        { rotulo: '21–31', min: 21, max: 31, qtd: 0, total: 0 },
+      ];
+      let semData = { qtd: 0, total: 0 };
+      for (const al of ativos) {
+        const valor = calcs.get(al.id)!.total;
+        const dia = diaVencimentoDe(al.desde);
+        if (dia == null) {
+          semData = { qtd: semData.qtd + 1, total: semData.total + valor };
+          continue;
+        }
+        const faixa = faixas.find((f) => dia >= f.min && dia <= f.max);
+        if (faixa) {
+          faixa.qtd += 1;
+          faixa.total += valor;
+        }
+      }
+      const todas = semData.qtd > 0 ? [...faixas, { rotulo: 'sem data', min: 0, max: 0, ...semData }] : faixas;
+      const maiorTotal = Math.max(1, ...todas.map((f) => f.total));
+      return todas.map((f) => ({ rotulo: f.rotulo, qtd: f.qtd, totalFmt: brl(f.total), pct: Math.round((f.total / maiorTotal) * 100) }));
+    })();
+
     const historico = [6800, 7150, 7420, 7900];
     const valores = [...historico, previsto, Math.round(previsto * 1.06)];
     const nomes = ['mai', 'jun', 'jul', 'ago', 'set', 'out'];
@@ -496,6 +526,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           patchAlunoOtimista(a.id, (x) => ({ ...x, pag: 'pago' }), () => db.setAlunoPag(a.id, 'pago'), 'Pagamento de ' + a.nome + ' registrado.');
         },
         media: brl((a.base * 3.6) / 4),
+        impactoPerderTexto:
+          c.total > 0
+            ? 'Sem ' + a.nome.split(' ')[0] + ', o faturamento do mês cai de ' + brl(previsto) + ' para ' + brl(previsto - c.total) + ' (−' + Math.round((c.total / previsto) * 100) + '%).'
+            : null,
         historico: [
           { mes: 'agosto', nota: 'pacote cheio', valor: brl(a.base) },
           { mes: 'julho', nota: '1 cancelada', valor: brl(a.base - a.base / a.previstas) },
@@ -641,7 +675,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     );
     const totalDia = aulasDoDia.reduce((t, s) => t + (s.valor.startsWith('−') ? 0 : parseFloat(s.valor.replace(/[^\d]/g, ''))), 0);
 
-    const academiasResumo = custosAcademias.map(({ academia: ac, nAtivos, base: baseC, desloc, total }) => ({
+    const academiasResumo = custosAcademias.map(({ academia: ac, nAtivos, base: baseC, desloc, total }) => {
+      const receita = ativos.filter((al) => al.academiaId === ac.id).reduce((t, al) => t + calcs.get(al.id)!.total, 0);
+      return {
       id: ac.id,
       nome: ac.nome,
       modeloTexto: ac.modelo === 'mensal_fixo' ? 'Mensal fixo' : 'Por aluno',
@@ -651,6 +687,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       baseFmt: brl(baseC),
       deslocFmt: brl(desloc),
       custoMensalFmt: brl(total),
+      receitaFmt: brl(receita),
+      lucroFmt: brl(receita - total),
+      lucroPositivo: receita - total >= 0,
       editar: () => patchUi({ modal: 'academiaForm', editAcademiaId: ac.id }),
       excluir: () => {
         if (nAtivos > 0) {
@@ -661,7 +700,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         db.deleteAcademiaRow(ac.id).catch(reportError);
         showToast(ac.nome + ' excluída.');
       },
-    }));
+    };
+    });
 
     const editandoAcademia = domain.academias.find((ac) => ac.id === S.editAcademiaId) ?? null;
     const editandoAluno = domain.alunos.find((al) => al.id === S.editAlunoId) ?? null;
@@ -803,6 +843,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         anelGrad: 'conic-gradient(var(--color-accent-800) 0 ' + recPct + '%, var(--color-accent-400) 0 ' + (recPct + abPct) + '%, var(--color-neutral-300) 0)',
       },
       topAlunos: top,
+      vencimentoFaixas,
       irCobranca: () => patchUi({ tab: 'cobranca' }),
       tabs: ([
         ['painel', 'Painel', IconePainel],
