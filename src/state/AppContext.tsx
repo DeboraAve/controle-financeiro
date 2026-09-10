@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { flushSync } from 'react-dom';
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
 import { ACADEMIA_MODELOS, CATS, dia2, iniciais } from '../data/seed';
-import { brl, calc, diaVencimentoDe } from '../lib/calc';
+import { brl, calc, diaVencimentoDe, mesAtual, mesSeguinte, nomeMesAbrev, nomeMesLongo } from '../lib/calc';
 import { calcularAvaliacao, calcularRcq } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
@@ -36,9 +36,10 @@ interface DomainRaw {
   alunos: Aluno[];
   despesas: Despesa[];
   academias: Academia[];
+  fechamentos: db.Fechamento[];
 }
 
-const emptyDomainRaw: DomainRaw = { alunos: [], despesas: [], academias: [] };
+const emptyDomainRaw: DomainRaw = { alunos: [], despesas: [], academias: [], fechamentos: [] };
 
 export interface AlunoListItem {
   id: string;
@@ -215,6 +216,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           alunos: remote.alunos,
           despesas: remote.despesas,
           academias: remote.academias,
+          fechamentos: remote.fechamentos,
         });
         setDonoPorAluno(remote.donoPorAluno);
         setDonoPorDespesa(remote.donoPorDespesa);
@@ -363,6 +365,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const semanasPorMes = domain.semanasPorMes;
     const ativos = domain.alunos.filter((a) => a.status !== 'inativo');
     const calcs = new Map(domain.alunos.map((a) => [a.id, calc(a)]));
+    const fechamentosDoOwner = effectiveOwnerId ? domainRaw.fechamentos.filter((f) => donoPorAluno[f.alunoId] === effectiveOwnerId) : [];
+    const mesAtualStr = mesAtual();
 
     const soma = (f: (a: Aluno) => boolean) => ativos.filter(f).reduce((t, a) => t + calcs.get(a.id)!.total, 0);
     const previsto = soma(() => true);
@@ -425,22 +429,32 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       return todas.map((f) => ({ rotulo: f.rotulo, qtd: f.qtd, totalFmt: brl(f.total), pct: Math.round((f.total / maiorTotal) * 100) }));
     })();
 
-    const historico = [6800, 7150, 7420, 7900];
+    // Só entra no gráfico o que foi de verdade fechado (tabela `fechamentos`)
+    // — sem isso, mostra só o mês corrente ao vivo + a projeção. Vai
+    // enchendo aos poucos conforme "Fechar o mês" é usado.
+    const totalPorMesFechado = new Map<string, number>();
+    for (const f of fechamentosDoOwner) {
+      totalPorMesFechado.set(f.mes, (totalPorMesFechado.get(f.mes) ?? 0) + f.total);
+    }
+    const mesesFechadosOrdenados = [...totalPorMesFechado.keys()].filter((m) => m < mesAtualStr).sort().slice(-4);
+    const historico = mesesFechadosOrdenados.map((m) => totalPorMesFechado.get(m)!);
+    const mesProjetado = mesSeguinte(mesAtualStr);
     const valores = [...historico, previsto, Math.round(previsto * 1.06)];
-    const nomes = ['mai', 'jun', 'jul', 'ago', 'set', 'out'];
-    const mesAtualIdx = 4;
+    const nomes = [...mesesFechadosOrdenados.map(nomeMesAbrev), nomeMesAbrev(mesAtualStr), nomeMesAbrev(mesProjetado)];
+    const mesAtualIdx = historico.length;
+    const projIdx = historico.length + 1;
     const maxV = Math.max(...valores, meta, despTotal);
     const meses = valores.map((v, i) => ({
       nome: nomes[i],
       rotulo: (v / 1000).toFixed(1) + 'k',
       h: Math.round((v / maxV) * 88),
-      cor: i === 4 ? 'var(--color-accent)' : i === 5 ? 'transparent' : 'var(--color-accent-200)',
-      borda: i === 5 ? 'var(--color-accent-400)' : i === 4 ? 'var(--color-accent)' : 'var(--color-accent-300)',
-      texto: i === 4 ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
+      cor: i === mesAtualIdx ? 'var(--color-accent)' : i === projIdx ? 'transparent' : 'var(--color-accent-200)',
+      borda: i === projIdx ? 'var(--color-accent-400)' : i === mesAtualIdx ? 'var(--color-accent)' : 'var(--color-accent-300)',
+      texto: i === mesAtualIdx ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
       despesaH: i === mesAtualIdx ? Math.round((despTotal / maxV) * 88) : null,
     }));
     const metaLinhaH = Math.round((meta / maxV) * 88);
-    const pt = (i: number, v: number) => i * 60 + ',' + (108 - (v / maxV) * 100).toFixed(1);
+    const pt = (i: number, v: number) => i * (300 / (valores.length - 1)) + ',' + (108 - (v / maxV) * 100).toFixed(1);
     const recPct = Math.round((recebido / (previsto || 1)) * 100);
     const abPct = Math.round((aberto / (previsto || 1)) * 100);
 
@@ -505,6 +519,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     let aluno: AlunoDetalheVm | undefined;
     if (a) {
       const c = calcs.get(a.id)!;
+      const fechamentosDesteAluno = fechamentosDoOwner.filter((f) => f.alunoId === a.id).sort((x, y) => y.mes.localeCompare(x.mes)).slice(0, 4);
       aluno = {
         id: a.id,
         nome: a.nome,
@@ -528,17 +543,16 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         acaoPagamento: () => {
           patchAlunoOtimista(a.id, (x) => ({ ...x, pag: 'pago' }), () => db.setAlunoPag(a.id, 'pago'), 'Pagamento de ' + a.nome + ' registrado.');
         },
-        media: brl((a.base * 3.6) / 4),
+        media: fechamentosDesteAluno.length ? brl(fechamentosDesteAluno.reduce((t, f) => t + f.total, 0) / fechamentosDesteAluno.length) : '',
         impactoPerderTexto:
           c.total > 0
             ? 'Sem ' + a.nome.split(' ')[0] + ', o faturamento do mês cai de ' + brl(previsto) + ' para ' + brl(previsto - c.total) + ' (−' + Math.round((c.total / previsto) * 100) + '%).'
             : null,
-        historico: [
-          { mes: 'agosto', nota: 'pacote cheio', valor: brl(a.base) },
-          { mes: 'julho', nota: '1 cancelada', valor: brl(a.base - a.base / a.previstas) },
-          { mes: 'junho', nota: '+1 extra', valor: brl(a.base + a.base / a.previstas) },
-          { mes: 'maio', nota: 'pacote cheio', valor: brl(a.base) },
-        ],
+        historico: fechamentosDesteAluno.map((f) => ({
+          mes: nomeMesLongo(f.mes),
+          nota: f.canceladas > 0 ? f.canceladas + (f.canceladas === 1 ? ' cancelada' : ' canceladas') : f.extras > 0 ? '+' + f.extras + (f.extras === 1 ? ' extra' : ' extras') : f.feriasValor > 0 ? 'férias' : 'pacote cheio',
+          valor: brl(f.total),
+        })),
         sessoes: a.sessoes.map((s) => ({
           id: s.id,
           dia: s.dia.slice(0, 2),
@@ -837,14 +851,14 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       meses,
       viz: {
         titulo: vizNome === 'Anel de recebimento' ? 'Composição do mês' : 'Caixa mês a mês',
-        legenda: vizNome === 'Anel de recebimento' ? 'previsto ' + brl(previsto) : 'out projetado',
+        legenda: vizNome === 'Anel de recebimento' ? 'previsto ' + brl(previsto) : nomeMesAbrev(mesProjetado) + ' projetado',
         barras: vizNome === 'Barras mensais',
         linha: vizNome === 'Linha de caixa',
         anel: vizNome === 'Anel de recebimento',
         metaLinhaH,
         despesaAtualFmt: brl(despTotal),
-        pontos: valores.slice(0, 5).map((v, i) => pt(i, v)).join(' '),
-        pontosProj: [pt(4, valores[4]), pt(5, valores[5])].join(' '),
+        pontos: valores.slice(0, -1).map((v, i) => pt(i, v)).join(' '),
+        pontosProj: [pt(mesAtualIdx, valores[mesAtualIdx]), pt(projIdx, valores[projIdx])].join(' '),
         anelGrad: 'conic-gradient(var(--color-accent-800) 0 ' + recPct + '%, var(--color-accent-400) 0 ' + (recPct + abPct) + '%, var(--color-neutral-300) 0)',
       },
       topAlunos: top,
@@ -910,6 +924,35 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       modalCobranca: S.modal === 'cobranca',
       modalAjustes: S.modal === 'ajustes',
       abrirAjustes: () => patchUi({ modal: 'ajustes' }),
+      modalFecharMes: S.modal === 'fecharMes',
+      abrirFecharMes: () => ativos.length > 0 && patchUi({ modal: 'fecharMes' }),
+      fecharMesQtdAlunos: ativos.length,
+      fecharMesTotalFmt: brl(previsto),
+      fecharMesNome: nomeMesLongo(mesAtualStr),
+      confirmarFecharMes: () => {
+        if (!effectiveOwnerId || ativos.length === 0) return;
+        const mes = mesAtualStr;
+        const rows: db.FechamentoInsertPayload[] = ativos.map((al) => {
+          const c = calcs.get(al.id)!;
+          return { alunoId: al.id, mes, base: al.base, total: c.total, canceladas: c.canceladas, extras: c.extras, feriasValor: c.ferias };
+        });
+        const ids = ativos.map((al) => al.id);
+        db.fecharMesRemote(rows, ids, effectiveOwnerId)
+          .then((novos) => {
+            setDomainRaw((s) => ({
+              ...s,
+              alunos: s.alunos.map((al) =>
+                ids.includes(al.id)
+                  ? { ...al, ferias: 0, sessoes: al.sessoes.filter((sx) => sx.s !== 'extra').map((sx) => ({ ...sx, s: sx.s === 'cancelada' ? 'feita' : sx.s })) }
+                  : al,
+              ),
+              fechamentos: [...s.fechamentos.filter((f) => !(f.mes === mes && ids.includes(f.alunoId))), ...novos],
+            }));
+            patchUi({ modal: null });
+            showToast('Mês fechado — ' + ids.length + ' aluno(s), ' + brl(rows.reduce((t, r) => t + r.total, 0)) + ' registrados.');
+          })
+          .catch(reportError);
+      },
       fecharModal: () => patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null }),
       feriasValor: S.feriasValor,
       setFeriasValor: (v: string) => patchUi({ feriasValor: v.replace(/[^\d]/g, '') }),

@@ -119,7 +119,14 @@ export function AlunoDetalhe() {
             <span>{h.mes}</span><span>{h.nota}</span><span style={{ fontFamily: 'var(--font-heading)', color: 'var(--color-text)' }}>{h.valor}</span>
           </div>
         ))}
-        <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>Média dos últimos 4 meses: {aluno.media}</div>
+        {aluno.historico.length === 0 && (
+          <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhum mês fechado ainda — use "Fechar o mês" no Painel pra começar o histórico dele.</div>
+        )}
+        {aluno.historico.length > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
+            {aluno.historico.length === 1 ? 'Média do último mês' : 'Média dos últimos ' + aluno.historico.length + ' meses'}: {aluno.media}
+          </div>
+        )}
       </div>
       <div style={{ height: 6 }} />
     </div>

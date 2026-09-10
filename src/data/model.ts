@@ -65,4 +65,5 @@ export type Modal =
   | 'despesaForm'
   | 'avaliacaoForm'
   | 'avaliacaoDetalhe'
+  | 'fecharMes'
   | null;

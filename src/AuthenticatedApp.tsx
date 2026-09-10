@@ -22,6 +22,7 @@ import { AcademiaFormModal } from './components/modals/AcademiaFormModal';
 import { DespesaFormModal } from './components/modals/DespesaFormModal';
 import { AvaliacaoFormModal } from './components/modals/AvaliacaoFormModal';
 import { AvaliacaoDetalheModal } from './components/modals/AvaliacaoDetalheModal';
+import { FecharMesModal } from './components/modals/FecharMesModal';
 import { SkeletonCard, SkeletonRow } from './components/ui/Skeleton';
 import { IconeAlunos, TAMANHO_ICONE } from './components/ui/icons';
 
@@ -117,6 +118,7 @@ function Shell() {
       <DespesaFormModal />
       <AvaliacaoFormModal />
       <AvaliacaoDetalheModal />
+      <FecharMesModal />
     </div>
   );
 }

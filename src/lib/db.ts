@@ -53,6 +53,33 @@ interface AjustesRow {
   semanas_por_mes: number;
 }
 
+interface FechamentoRow {
+  id: string;
+  user_id: string;
+  aluno_id: string;
+  mes: string;
+  base: number;
+  total: number;
+  canceladas: number;
+  extras: number;
+  ferias_valor: number;
+}
+
+export interface Fechamento {
+  id: string;
+  alunoId: string;
+  mes: string;
+  base: number;
+  total: number;
+  canceladas: number;
+  extras: number;
+  feriasValor: number;
+}
+
+function fechamentoFromRow(r: FechamentoRow): Fechamento {
+  return { id: r.id, alunoId: r.aluno_id, mes: r.mes, base: r.base, total: r.total, canceladas: r.canceladas, extras: r.extras, feriasValor: r.ferias_valor };
+}
+
 function academiaFromRow(r: AcademiaRow): Academia {
   return { id: r.id, nome: r.nome, modelo: r.modelo, valorCobrado: r.valor_cobrado, custoPorTrecho: r.custo_por_trecho, viagensPorSemana: r.viagens_por_semana };
 }
@@ -96,6 +123,7 @@ export interface RemoteDomain {
   academias: Academia[];
   alunos: Aluno[];
   despesas: Despesa[];
+  fechamentos: Fechamento[];
   ajustesPorUser: Record<string, AjustesData>;
   donoPorAluno: Record<string, string>;
   donoPorDespesa: Record<string, string>;
@@ -105,18 +133,20 @@ export interface RemoteDomain {
 export const AJUSTES_PADRAO: AjustesData = { grafico: 'Barras mensais', metaMensal: 7500, diasParaAtraso: 5, semanasPorMes: 4 };
 
 export async function fetchDomain(userId: string): Promise<RemoteDomain> {
-  const [academiasRes, alunosRes, sessoesRes, despesasRes, ajustesRes] = await Promise.all([
+  const [academiasRes, alunosRes, sessoesRes, despesasRes, ajustesRes, fechamentosRes] = await Promise.all([
     supabase.from('academias').select('*').order('created_at'),
     supabase.from('alunos').select('*').order('created_at'),
     supabase.from('sessoes').select('*'),
     supabase.from('despesas').select('*').order('dia', { ascending: false }),
     supabase.from('ajustes').select('*'),
+    supabase.from('fechamentos').select('*').order('mes'),
   ]);
   if (academiasRes.error) throw academiasRes.error;
   if (alunosRes.error) throw alunosRes.error;
   if (sessoesRes.error) throw sessoesRes.error;
   if (despesasRes.error) throw despesasRes.error;
   if (ajustesRes.error) throw ajustesRes.error;
+  if (fechamentosRes.error) throw fechamentosRes.error;
 
   const sessoesByAluno = new Map<string, Sessao[]>();
   for (const row of (sessoesRes.data ?? []) as SessaoRow[]) {
@@ -161,6 +191,7 @@ export async function fetchDomain(userId: string): Promise<RemoteDomain> {
     academias: academiaRows.map(academiaFromRow),
     alunos: alunoRows.map((r) => alunoFromRow(r, sessoesByAluno.get(r.id) ?? [])),
     despesas: despesaRows.map(despesaFromRow),
+    fechamentos: ((fechamentosRes.data ?? []) as FechamentoRow[]).map(fechamentoFromRow),
     ajustesPorUser,
     donoPorAluno,
     donoPorDespesa,
@@ -303,6 +334,51 @@ export async function limparAjustesRemote(alunoId: string): Promise<void> {
   if (e1) throw e1;
   if (e2) throw e2;
   if (e3) throw e3;
+}
+
+// ---- fechamento mensal ----
+export interface FechamentoInsertPayload {
+  alunoId: string;
+  mes: string;
+  base: number;
+  total: number;
+  canceladas: number;
+  extras: number;
+  feriasValor: number;
+}
+
+// Registra o fechamento real de cada aluno ativo (upsert — reabrir "Fechar o
+// mês" no mesmo mês atualiza em vez de duplicar) e então reseta os ajustes
+// deles, igual limparAjustesRemote faz por aluno, só que em lote.
+export async function fecharMesRemote(rows: FechamentoInsertPayload[], alunoIds: string[], ownerId?: string): Promise<Fechamento[]> {
+  const { data, error } = await supabase
+    .from('fechamentos')
+    .upsert(
+      rows.map((r) => ({
+        aluno_id: r.alunoId,
+        mes: r.mes,
+        base: r.base,
+        total: r.total,
+        canceladas: r.canceladas,
+        extras: r.extras,
+        ferias_valor: r.feriasValor,
+        ...(ownerId ? { user_id: ownerId } : {}),
+      })),
+      { onConflict: 'aluno_id,mes' },
+    )
+    .select();
+  if (error) throw error;
+
+  const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
+    supabase.from('alunos').update({ ferias: 0 }).in('id', alunoIds),
+    supabase.from('sessoes').delete().in('aluno_id', alunoIds).eq('status', 'extra'),
+    supabase.from('sessoes').update({ status: 'feita' }).in('aluno_id', alunoIds).eq('status', 'cancelada'),
+  ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  if (e3) throw e3;
+
+  return ((data ?? []) as FechamentoRow[]).map(fechamentoFromRow);
 }
 
 // ---- despesas ----

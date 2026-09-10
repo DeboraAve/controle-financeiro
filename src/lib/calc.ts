@@ -23,6 +23,30 @@ export function formatarDesde(desde: string): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+/* `mes` de um fechamento guarda "aaaa-mm" (ex.: "2026-09"). */
+const NOMES_MES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const NOMES_MES_LONGO = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+export function mesAtual(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+export function mesSeguinte(mes: string): string {
+  const [ano, m] = mes.split('-').map(Number);
+  const d = new Date(Date.UTC(ano, m, 1));
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+
+export function nomeMesAbrev(mes: string): string {
+  const m = /^\d{4}-(\d{2})$/.exec(mes);
+  return m ? NOMES_MES_ABREV[parseInt(m[1], 10) - 1] : mes;
+}
+
+export function nomeMesLongo(mes: string): string {
+  const m = /^\d{4}-(\d{2})$/.exec(mes);
+  return m ? NOMES_MES_LONGO[parseInt(m[1], 10) - 1] : mes;
+}
+
 export interface Calculo {
   valorAula: number;
   canceladas: number;

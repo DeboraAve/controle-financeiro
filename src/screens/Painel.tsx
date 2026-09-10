@@ -13,7 +13,7 @@ function iniciaisDe(nome: string | undefined, email: string | undefined): string
 }
 
 export function Painel() {
-  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico } = useApp();
+  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico, isGestao, abrirFecharMes } = useApp();
   const { session } = useAuth();
   const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
@@ -44,6 +44,9 @@ export function Painel() {
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)', fontSize: 12, color: 'var(--color-neutral-700)', borderTop: '1px solid var(--color-divider)', paddingTop: 'var(--space-2)' }}>
           <span>− {resumo.descontos} desconto</span><span style={{ color: 'var(--color-divider)' }}>|</span><span>+ {resumo.extras} extras</span>
         </div>
+        {!isGestao && (
+          <button className="btn btn-secondary" style={{ marginTop: 'var(--space-2)' }} onClick={abrirFecharMes}>Fechar o mês</button>
+        )}
       </BlueprintCard>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 'var(--space-2)' }}>
