@@ -31,4 +31,6 @@ export interface UiState {
   editAlunoId: string | null;
   editAcademiaId: string | null;
   editDespesaId: string | null;
+  editExercicioId: string | null;
+  treinoDetalheId: string | null;
 }

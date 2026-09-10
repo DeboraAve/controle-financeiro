@@ -30,6 +30,8 @@ const initialUi: UiState = {
   editAlunoId: null,
   editAcademiaId: null,
   editDespesaId: null,
+  editExercicioId: null,
+  treinoDetalheId: null,
 };
 
 interface DomainRaw {
@@ -236,6 +238,31 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
   }, [userId, carregarDomain]);
 
   const recarregar = useCallback(() => carregarDomain(false), [carregarDomain]);
+
+  // Histórico do navegador pros modais — um único ponto de controle pra
+  // toda a árvore de modais (não um push/back por Modal individual, que
+  // causa corrida quando um modal-lista abre um modal-formulário por cima
+  // na mesma renderização). Só reage a "existe modal aberto" virando
+  // verdadeiro/falso — trocar de um modal pro outro sem passar por "nenhum
+  // modal" não mexe no histórico.
+  const historyConsumidoRef = useRef(true);
+  useEffect(() => {
+    if (ui.modal !== null) {
+      window.history.pushState({ impulsaModal: true }, '');
+      historyConsumidoRef.current = false;
+      const aoVoltar = () => {
+        historyConsumidoRef.current = true;
+        patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null, editExercicioId: null, treinoDetalheId: null });
+      };
+      window.addEventListener('popstate', aoVoltar);
+      return () => window.removeEventListener('popstate', aoVoltar);
+    }
+    if (!historyConsumidoRef.current) {
+      historyConsumidoRef.current = true;
+      window.history.back();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.modal !== null]);
 
   useEffect(() => {
     if (!isAdmin) {
@@ -973,7 +1000,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           })
           .catch(reportError);
       },
-      fecharModal: () => patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null }),
+      fecharModal: () => patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null, editExercicioId: null, treinoDetalheId: null }),
       feriasValor: S.feriasValor,
       setFeriasValor: (v: string) => patchUi({ feriasValor: v.replace(/[^\d]/g, '') }),
       feriasPreview: a ? brl(Math.max(0, calcs.get(a.id)!.total - (parseInt(S.feriasValor || '0', 10) - calcs.get(a.id)!.ferias))) : '',

@@ -14,11 +14,12 @@ const SELETOR_FOCAVEL = 'a[href], button:not([disabled]), input:not([disabled]),
  * só um corte seco. O chamador deve sempre renderizar `<Modal open={x}>`,
  * nunca condicionar o render do próprio componente a `x`.
  *
- * Fecha por: botão, clique no backdrop, Esc, arrastar pra baixo (mobile)
- * ou o gesto de voltar do navegador/celular — os quatro primeiros chamam
- * `onClose`; o de voltar aciona por conta própria (ver o efeito de
- * histórico abaixo) e também chama `onClose`, então o estado do dono
- * (`S.modal`) e o estado visual nunca ficam dessincronizados.
+ * Fecha por: botão, clique no backdrop, Esc ou arrastar pra baixo (mobile) —
+ * todos chamam `onClose`. O gesto de voltar do navegador/celular é tratado
+ * fora daqui, num único lugar central (ver o efeito de histórico em
+ * `AppContext`, que vigia só "existe modal aberto ou não" em vez de cada
+ * modal ter sua própria entrada — evita a corrida entre pushState/back()
+ * quando um modal-lista abre um modal-formulário por cima na mesma hora).
  */
 export function Modal({
   open,
@@ -42,36 +43,20 @@ export function Modal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  const historyConsumidoRef = useRef(true);
   const fechandoPorArrastoRef = useRef(false);
   const acionadoPorRef = useRef<HTMLElement | null>(null);
   const idTitulo = useId();
 
-  // Ciclo de vida + histórico: empilha uma entrada ao abrir, e o botão/gesto
-  // de voltar do navegador fecha o modal em vez de sair da tela. Qualquer
-  // fechamento (botão, backdrop, Esc, sucesso de uma ação) passa por aqui
-  // porque todos eles, no fim, viram `open === false` vindo do dono.
+  // Ciclo de vida visual: `open` vira `false` mas o componente continua
+  // montado até a animação de saída terminar (ver `aoTerminarSaida`).
   useEffect(() => {
     if (open) {
       fechandoPorArrastoRef.current = false;
       setMounted(true);
       setPhase('entering');
-      window.history.pushState({ impulsaModal: true }, '');
-      historyConsumidoRef.current = false;
-      const aoVoltar = () => {
-        historyConsumidoRef.current = true;
-        onCloseRef.current();
-      };
-      window.addEventListener('popstate', aoVoltar);
-      return () => window.removeEventListener('popstate', aoVoltar);
+      return;
     }
-    if (mounted) {
-      if (!historyConsumidoRef.current) {
-        historyConsumidoRef.current = true;
-        window.history.back();
-      }
-      if (!fechandoPorArrastoRef.current) setPhase('exiting');
-    }
+    if (mounted && !fechandoPorArrastoRef.current) setPhase('exiting');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
