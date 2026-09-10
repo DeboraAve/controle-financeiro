@@ -23,6 +23,10 @@ import { DespesaFormModal } from './components/modals/DespesaFormModal';
 import { AvaliacaoFormModal } from './components/modals/AvaliacaoFormModal';
 import { AvaliacaoDetalheModal } from './components/modals/AvaliacaoDetalheModal';
 import { FecharMesModal } from './components/modals/FecharMesModal';
+import { ExerciciosModal } from './components/modals/ExerciciosModal';
+import { ExercicioFormModal } from './components/modals/ExercicioFormModal';
+import { TreinoFormModal } from './components/modals/TreinoFormModal';
+import { TreinoDetalheModal } from './components/modals/TreinoDetalheModal';
 import { SkeletonCard, SkeletonRow } from './components/ui/Skeleton';
 import { IconeAlunos, TAMANHO_ICONE } from './components/ui/icons';
 
@@ -119,6 +123,10 @@ function Shell() {
       <AvaliacaoFormModal />
       <AvaliacaoDetalheModal />
       <FecharMesModal />
+      <ExerciciosModal />
+      <ExercicioFormModal />
+      <TreinoFormModal />
+      <TreinoDetalheModal />
     </div>
   );
 }

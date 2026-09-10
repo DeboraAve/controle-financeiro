@@ -66,4 +66,8 @@ export type Modal =
   | 'avaliacaoForm'
   | 'avaliacaoDetalhe'
   | 'fecharMes'
+  | 'exercicios'
+  | 'exercicioForm'
+  | 'treinoForm'
+  | 'treinoDetalhe'
   | null;

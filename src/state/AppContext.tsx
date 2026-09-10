@@ -39,9 +39,10 @@ interface DomainRaw {
   despesas: Despesa[];
   academias: Academia[];
   fechamentos: db.Fechamento[];
+  exercicios: db.Exercicio[];
 }
 
-const emptyDomainRaw: DomainRaw = { alunos: [], despesas: [], academias: [], fechamentos: [] };
+const emptyDomainRaw: DomainRaw = { alunos: [], despesas: [], academias: [], fechamentos: [], exercicios: [] };
 
 export interface AlunoListItem {
   id: string;
@@ -164,9 +165,11 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
   const [donoPorAluno, setDonoPorAluno] = useState<Record<string, string>>({});
   const [donoPorDespesa, setDonoPorDespesa] = useState<Record<string, string>>({});
   const [donoPorAcademia, setDonoPorAcademia] = useState<Record<string, string>>({});
+  const [donoPorExercicio, setDonoPorExercicio] = useState<Record<string, string>>({});
   const [ajustesPorUser, setAjustesPorUser] = useState<Record<string, db.AjustesData>>({});
   const [profiles, setProfiles] = useState<db.ProfileRow[]>([]);
   const [avaliacoes, setAvaliacoes] = useState<db.AvaliacaoRow[]>([]);
+  const [treinosDoAluno, setTreinosDoAluno] = useState<db.Treino[]>([]);
   const [loading, setLoading] = useState(true);
   const [ui, setUi] = useState<UiState>(initialUi);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -210,19 +213,20 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
   const carregarDomain = useCallback((mostrarCarregando: boolean) => {
     const minhaGeracao = ++geracaoRef.current;
     if (mostrarCarregando) setLoading(true);
-    return db
-      .fetchDomain(userId)
-      .then((remote) => {
+    return Promise.all([db.fetchDomain(userId), db.fetchExercicios()])
+      .then(([remote, exerciciosRemote]) => {
         if (geracaoRef.current !== minhaGeracao) return;
         setDomainRaw({
           alunos: remote.alunos,
           despesas: remote.despesas,
           academias: remote.academias,
           fechamentos: remote.fechamentos,
+          exercicios: exerciciosRemote.exercicios,
         });
         setDonoPorAluno(remote.donoPorAluno);
         setDonoPorDespesa(remote.donoPorDespesa);
         setDonoPorAcademia(remote.donoPorAcademia);
+        setDonoPorExercicio(exerciciosRemote.donoPorExercicio);
         setAjustesPorUser(remote.ajustesPorUser);
       })
       .catch((e) => {
@@ -324,6 +328,25 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     };
   }, [atual?.id, reportError]);
 
+  const recarregarTreinos = useCallback(() => {
+    if (!atual) return;
+    db.fetchTreinosDoAluno(atual.id).then(setTreinosDoAluno).catch(reportError);
+  }, [atual, reportError]);
+
+  useEffect(() => {
+    if (!atual) {
+      setTreinosDoAluno([]);
+      return;
+    }
+    let ativo = true;
+    db.fetchTreinosDoAluno(atual.id)
+      .then((rows) => ativo && setTreinosDoAluno(rows))
+      .catch((e) => reportError(e));
+    return () => {
+      ativo = false;
+    };
+  }, [atual?.id, reportError]);
+
   const vm = useMemo(() => {
     const S = ui;
     const effectiveOwnerId = isAdmin ? S.adminViewingUserId : userId;
@@ -393,6 +416,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const ativos = domain.alunos.filter((a) => a.status !== 'inativo');
     const calcs = new Map(domain.alunos.map((a) => [a.id, calc(a)]));
     const fechamentosDoOwner = effectiveOwnerId ? domainRaw.fechamentos.filter((f) => donoPorAluno[f.alunoId] === effectiveOwnerId) : [];
+    const exerciciosDoOwner = effectiveOwnerId ? domainRaw.exercicios.filter((e) => donoPorExercicio[e.id] === effectiveOwnerId) : [];
+    const exercicioPorId = new Map(exerciciosDoOwner.map((e) => [e.id, e]));
     const mesAtualStr = mesAtual();
 
     const soma = (f: (a: Aluno) => boolean) => ativos.filter(f).reduce((t, a) => t + calcs.get(a.id)!.total, 0);
@@ -541,6 +566,32 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         abrir: () => patchUi({ tab: 'aluno', alunoId: a.id }),
       };
     });
+
+    const formatarItemTreino = (it: db.TreinoItem) => {
+      const ex = exercicioPorId.get(it.exercicioId);
+      const partes: string[] = [];
+      if (it.series != null) partes.push(it.series + (it.repeticoes ? 'x ' + it.repeticoes : 'x'));
+      else if (it.repeticoes) partes.push(it.repeticoes);
+      if (it.carga != null) partes.push(it.carga.toLocaleString('pt-BR') + ' kg');
+      if (it.descanso) partes.push('descanso ' + it.descanso);
+      return {
+        id: it.id,
+        exercicioNome: ex?.nome ?? '(exercício removido da biblioteca)',
+        grupoMuscular: ex?.grupoMuscular ?? '',
+        resumo: partes.join(' · '),
+        observacoes: it.observacoes,
+      };
+    };
+    const treinosVm = treinosDoAluno.map((t) => ({
+      id: t.id,
+      nome: t.nome || 'Treino',
+      status: t.status,
+      dataFmt: new Date(t.createdAt).toLocaleDateString('pt-BR'),
+      dias: t.dias.map((d) => ({ id: d.id, nome: d.nome, itens: d.itens.map(formatarItemTreino) })),
+      abrirDetalhe: () => patchUi({ modal: 'treinoDetalhe', treinoDetalheId: t.id }),
+    }));
+    const treinoAtivo = treinosVm.find((t) => t.status === 'ativo') ?? null;
+    const treinosArquivados = treinosVm.filter((t) => t.status === 'arquivado');
 
     const a = atual;
     let aluno: AlunoDetalheVm | undefined;
@@ -1195,6 +1246,73 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           })
           .catch(reportError);
       },
+      exerciciosResumo: exerciciosDoOwner.map((e) => ({
+        ...e,
+        editar: () => patchUi({ modal: 'exercicioForm', editExercicioId: e.id }),
+        excluir: () => {
+          setDomainRaw((s) => ({ ...s, exercicios: s.exercicios.filter((x) => x.id !== e.id) }));
+          db.deleteExercicioRow(e.id).catch(reportError);
+          showToast(e.nome + ' excluído da biblioteca.');
+        },
+      })),
+      exerciciosOptions: exerciciosDoOwner.map((e) => ({ id: e.id, nome: e.nome, grupoMuscular: e.grupoMuscular })),
+      modalExercicios: S.modal === 'exercicios',
+      abrirExercicios: () => patchUi({ modal: 'exercicios' }),
+      abrirNovoExercicio: () => patchUi({ modal: 'exercicioForm', editExercicioId: null }),
+      modalExercicioForm: S.modal === 'exercicioForm',
+      editandoExercicio: exerciciosDoOwner.find((e) => e.id === S.editExercicioId) ?? null,
+      fecharExercicioForm: () => patchUi({ modal: 'exercicios', editExercicioId: null }),
+      salvarExercicio: (payload: db.ExercicioPayload) => {
+        if (!payload.nome.trim()) {
+          showToast('Dá um nome pro exercício.');
+          return;
+        }
+        if (S.editExercicioId) {
+          const id = S.editExercicioId;
+          setDomainRaw((s) => ({ ...s, exercicios: s.exercicios.map((e) => (e.id === id ? { ...e, ...payload } : e)) }));
+          db.updateExercicioRow(id, payload).catch(reportError);
+          showToast(payload.nome + ' atualizado.');
+          patchUi({ modal: 'exercicios', editExercicioId: null });
+        } else {
+          db.insertExercicio(payload, effectiveOwnerId || undefined)
+            .then((novo) => {
+              setDomainRaw((s) => ({ ...s, exercicios: [...s.exercicios, novo] }));
+              showToast(payload.nome + ' cadastrado na biblioteca.');
+              patchUi({ modal: 'exercicios', editExercicioId: null });
+            })
+            .catch(reportError);
+        }
+      },
+      treinoAtivo,
+      treinosArquivados,
+      modalTreinoForm: S.modal === 'treinoForm',
+      abrirMontarTreino: () => a && patchUi({ modal: 'treinoForm' }),
+      salvarNovoTreino: (payload: db.TreinoPayload) => {
+        if (!a) return;
+        if (!payload.dias.length || payload.dias.every((d) => d.itens.length === 0)) {
+          showToast('Adiciona pelo menos um exercício no treino.');
+          return;
+        }
+        db.salvarTreino(a.id, payload, effectiveOwnerId || undefined)
+          .then(() => {
+            recarregarTreinos();
+            patchUi({ modal: null });
+            showToast('Treino montado — o anterior foi pro histórico.');
+          })
+          .catch(reportError);
+      },
+      modalTreinoDetalhe: S.modal === 'treinoDetalhe',
+      treinoDetalheAtual: treinosVm.find((t) => t.id === S.treinoDetalheId) ?? null,
+      abrirTreinoDetalhe: (id: string) => patchUi({ modal: 'treinoDetalhe', treinoDetalheId: id }),
+      excluirTreino: (id: string) => {
+        db.deleteTreinoRow(id)
+          .then(() => {
+            recarregarTreinos();
+            patchUi({ modal: null, treinoDetalheId: null });
+            showToast('Treino excluído.');
+          })
+          .catch(reportError);
+      },
       modalDespesaForm: S.modal === 'despesaForm',
       editandoDespesa,
       salvarDespesa: (payload: DespesaFormPayload) => {
@@ -1292,7 +1410,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [domainRaw, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId, isAdmin, donoPorAluno, donoPorDespesa, donoPorAcademia, ajustesPorUser, profiles, avaliacoes]);
+  }, [domainRaw, ui, atual, patchUi, patchAlunoLocal, showToast, reportError, loading, userId, isAdmin, donoPorAluno, donoPorDespesa, donoPorAcademia, donoPorExercicio, ajustesPorUser, profiles, avaliacoes, treinosDoAluno, recarregarTreinos]);
 
   return vm;
 }

@@ -199,6 +199,225 @@ export async function fetchDomain(userId: string): Promise<RemoteDomain> {
   };
 }
 
+// ---- exercícios (biblioteca) ----
+interface ExercicioRow {
+  id: string;
+  user_id: string;
+  nome: string;
+  grupo_muscular: string;
+  video_url: string;
+  observacoes: string;
+}
+
+export interface Exercicio {
+  id: string;
+  nome: string;
+  grupoMuscular: string;
+  videoUrl: string;
+  observacoes: string;
+}
+
+function exercicioFromRow(r: ExercicioRow): Exercicio {
+  return { id: r.id, nome: r.nome, grupoMuscular: r.grupo_muscular, videoUrl: r.video_url, observacoes: r.observacoes };
+}
+
+export interface ExercicioPayload {
+  nome: string;
+  grupoMuscular: string;
+  videoUrl: string;
+  observacoes: string;
+}
+
+export async function fetchExercicios(): Promise<{ exercicios: Exercicio[]; donoPorExercicio: Record<string, string> }> {
+  const { data, error } = await supabase.from('exercicios').select('*').order('nome');
+  if (error) throw error;
+  const rows = (data ?? []) as ExercicioRow[];
+  const donoPorExercicio: Record<string, string> = {};
+  for (const r of rows) donoPorExercicio[r.id] = r.user_id;
+  return { exercicios: rows.map(exercicioFromRow), donoPorExercicio };
+}
+
+export async function insertExercicio(payload: ExercicioPayload, ownerId?: string): Promise<Exercicio> {
+  const { data, error } = await supabase
+    .from('exercicios')
+    .insert({ nome: payload.nome, grupo_muscular: payload.grupoMuscular, video_url: payload.videoUrl, observacoes: payload.observacoes, ...(ownerId ? { user_id: ownerId } : {}) })
+    .select()
+    .single();
+  if (error) throw error;
+  return exercicioFromRow(data as ExercicioRow);
+}
+
+export async function updateExercicioRow(id: string, payload: ExercicioPayload): Promise<void> {
+  const { error } = await supabase
+    .from('exercicios')
+    .update({ nome: payload.nome, grupo_muscular: payload.grupoMuscular, video_url: payload.videoUrl, observacoes: payload.observacoes })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteExercicioRow(id: string): Promise<void> {
+  const { error } = await supabase.from('exercicios').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// ---- treinos ----
+interface TreinoRow {
+  id: string;
+  aluno_id: string;
+  nome: string;
+  status: 'ativo' | 'arquivado';
+  created_at: string;
+}
+
+interface TreinoDiaRow {
+  id: string;
+  treino_id: string;
+  nome: string;
+  ordem: number;
+}
+
+interface TreinoItemRow {
+  id: string;
+  treino_dia_id: string;
+  exercicio_id: string;
+  ordem: number;
+  series: number | null;
+  repeticoes: string;
+  carga: number | null;
+  descanso: string;
+  observacoes: string;
+}
+
+export interface TreinoItemPayload {
+  exercicioId: string;
+  series: number | null;
+  repeticoes: string;
+  carga: number | null;
+  descanso: string;
+  observacoes: string;
+}
+
+export interface TreinoDiaPayload {
+  nome: string;
+  itens: TreinoItemPayload[];
+}
+
+export interface TreinoPayload {
+  nome: string;
+  dias: TreinoDiaPayload[];
+}
+
+export interface TreinoItem extends TreinoItemPayload {
+  id: string;
+}
+
+export interface TreinoDia {
+  id: string;
+  nome: string;
+  itens: TreinoItem[];
+}
+
+export interface Treino {
+  id: string;
+  alunoId: string;
+  nome: string;
+  status: 'ativo' | 'arquivado';
+  createdAt: string;
+  dias: TreinoDia[];
+}
+
+export async function fetchTreinosDoAluno(alunoId: string): Promise<Treino[]> {
+  const treinosRes = await supabase.from('treinos').select('*').eq('aluno_id', alunoId).order('created_at', { ascending: false });
+  if (treinosRes.error) throw treinosRes.error;
+  const treinoRows = (treinosRes.data ?? []) as TreinoRow[];
+  if (treinoRows.length === 0) return [];
+
+  const treinoIds = treinoRows.map((t) => t.id);
+  const diasRes = await supabase.from('treino_dias').select('*').in('treino_id', treinoIds).order('ordem');
+  if (diasRes.error) throw diasRes.error;
+  const diaRows = (diasRes.data ?? []) as TreinoDiaRow[];
+
+  const diaIds = diaRows.map((d) => d.id);
+  let itemRows: TreinoItemRow[] = [];
+  if (diaIds.length > 0) {
+    const itensRes = await supabase.from('treino_itens').select('*').in('treino_dia_id', diaIds).order('ordem');
+    if (itensRes.error) throw itensRes.error;
+    itemRows = (itensRes.data ?? []) as TreinoItemRow[];
+  }
+
+  const itensPorDia = new Map<string, TreinoItem[]>();
+  for (const r of itemRows) {
+    const list = itensPorDia.get(r.treino_dia_id) ?? [];
+    list.push({ id: r.id, exercicioId: r.exercicio_id, series: r.series, repeticoes: r.repeticoes, carga: r.carga, descanso: r.descanso, observacoes: r.observacoes });
+    itensPorDia.set(r.treino_dia_id, list);
+  }
+  const diasPorTreino = new Map<string, TreinoDia[]>();
+  for (const d of diaRows) {
+    const list = diasPorTreino.get(d.treino_id) ?? [];
+    list.push({ id: d.id, nome: d.nome, itens: itensPorDia.get(d.id) ?? [] });
+    diasPorTreino.set(d.treino_id, list);
+  }
+
+  return treinoRows.map((t) => ({ id: t.id, alunoId: t.aluno_id, nome: t.nome, status: t.status, createdAt: t.created_at, dias: diasPorTreino.get(t.id) ?? [] }));
+}
+
+// Arquiva o treino ativo anterior (se tiver) e monta o novo em 3 passos —
+// treino, dias, itens — porque cada um precisa do id gerado pelo anterior.
+export async function salvarTreino(alunoId: string, payload: TreinoPayload, ownerId?: string): Promise<Treino> {
+  const { error: eArquivar } = await supabase.from('treinos').update({ status: 'arquivado' }).eq('aluno_id', alunoId).eq('status', 'ativo');
+  if (eArquivar) throw eArquivar;
+
+  const { data: treinoData, error: eTreino } = await supabase
+    .from('treinos')
+    .insert({ aluno_id: alunoId, nome: payload.nome, status: 'ativo', ...(ownerId ? { user_id: ownerId } : {}) })
+    .select()
+    .single();
+  if (eTreino) throw eTreino;
+  const treinoRow = treinoData as TreinoRow;
+
+  const dias: TreinoDia[] = [];
+  for (let i = 0; i < payload.dias.length; i++) {
+    const diaPayload = payload.dias[i];
+    const { data: diaData, error: eDia } = await supabase
+      .from('treino_dias')
+      .insert({ treino_id: treinoRow.id, nome: diaPayload.nome, ordem: i, ...(ownerId ? { user_id: ownerId } : {}) })
+      .select()
+      .single();
+    if (eDia) throw eDia;
+    const diaRow = diaData as TreinoDiaRow;
+
+    let itens: TreinoItem[] = [];
+    if (diaPayload.itens.length > 0) {
+      const { data: itensData, error: eItens } = await supabase
+        .from('treino_itens')
+        .insert(
+          diaPayload.itens.map((it, j) => ({
+            treino_dia_id: diaRow.id,
+            exercicio_id: it.exercicioId,
+            ordem: j,
+            series: it.series,
+            repeticoes: it.repeticoes,
+            carga: it.carga,
+            descanso: it.descanso,
+            observacoes: it.observacoes,
+            ...(ownerId ? { user_id: ownerId } : {}),
+          })),
+        )
+        .select();
+      if (eItens) throw eItens;
+      itens = ((itensData ?? []) as TreinoItemRow[]).map((r) => ({ id: r.id, exercicioId: r.exercicio_id, series: r.series, repeticoes: r.repeticoes, carga: r.carga, descanso: r.descanso, observacoes: r.observacoes }));
+    }
+    dias.push({ id: diaRow.id, nome: diaRow.nome, itens });
+  }
+
+  return { id: treinoRow.id, alunoId: treinoRow.aluno_id, nome: treinoRow.nome, status: treinoRow.status, createdAt: treinoRow.created_at, dias };
+}
+
+export async function deleteTreinoRow(id: string): Promise<void> {
+  const { error } = await supabase.from('treinos').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ---- academias ----
 export async function insertAcademia(payload: { nome: string; modelo: ModeloCobranca; valorCobrado: number; custoPorTrecho: number; viagensPorSemana: number }, ownerId?: string): Promise<Academia> {
   const { data, error } = await supabase

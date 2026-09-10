@@ -6,7 +6,10 @@ import { formatarDesde } from '../lib/calc';
 import { CAMPOS_COMPARAVEIS } from '../lib/avaliacaoCalc';
 
 export function AlunoDetalhe() {
-  const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao } = useApp();
+  const {
+    aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao,
+    treinoAtivo, treinosArquivados, abrirMontarTreino, abrirExercicios,
+  } = useApp();
   const [metricasVisiveis, setMetricasVisiveis] = useState<Set<string>>(() => new Set(['peso', 'percentualGordura']));
   if (!aluno) return null;
 
@@ -146,6 +149,35 @@ export function AlunoDetalhe() {
         ))}
         {avaliacoes.length === 0 && <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhuma avaliação registrada ainda.</div>}
         {avaliacoes.length > 0 && <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>toque numa avaliação pra ver o detalhamento e enviar</div>}
+      </BlueprintCard>
+
+      <BlueprintCard style={{ gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div className="card-kicker">Treino</div>
+          <button className="btn btn-ghost" style={{ padding: 0, fontSize: 12 }} onClick={abrirExercicios}>biblioteca</button>
+        </div>
+        {treinoAtivo ? (
+          <div onClick={treinoAtivo.abrirDetalhe} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 15 }}>{treinoAtivo.nome}</div>
+            <div style={{ fontSize: 12, color: 'var(--color-neutral-700)' }}>
+              {treinoAtivo.dias.length} dia(s) · {treinoAtivo.dias.reduce((t, d) => t + d.itens.length, 0)} exercício(s) · montado em {treinoAtivo.dataFmt}
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhum treino ativo ainda.</div>
+        )}
+        {treinosArquivados.length > 0 && (
+          <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
+            {treinosArquivados.length} treino(s) antigo(s):{' '}
+            {treinosArquivados.map((t, i) => (
+              <span key={t.id}>
+                {i > 0 && ', '}
+                <a href="#" onClick={(e) => { e.preventDefault(); t.abrirDetalhe(); }}>{t.dataFmt}</a>
+              </span>
+            ))}
+          </div>
+        )}
+        <button className="btn btn-secondary" onClick={abrirMontarTreino}>{treinoAtivo ? 'Montar novo treino' : 'Montar treino'}</button>
       </BlueprintCard>
 
       <div className="card" style={{ gap: 'var(--space-2)' }}>
