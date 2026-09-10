@@ -2,6 +2,8 @@ import { useApp } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
+const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as const;
+
 function iniciaisDe(nome: string | undefined, email: string | undefined): string {
   if (nome && nome.trim()) {
     const partes = nome.trim().split(/\s+/).filter(Boolean);
@@ -11,7 +13,7 @@ function iniciaisDe(nome: string | undefined, email: string | undefined): string
 }
 
 export function Painel() {
-  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes } = useApp();
+  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico } = useApp();
   const { session } = useAuth();
   const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
@@ -83,15 +85,42 @@ export function Painel() {
           <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{viz.legenda}</div>
         </div>
 
+        <div className="seg" style={{ display: 'flex' }}>
+          {GRAFICOS.map((g) => (
+            <label key={g} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
+              <input type="radio" name="grafico" checked={grafico === g} onChange={() => setGrafico(g)} />
+              <span>{g}</span>
+            </label>
+          ))}
+        </div>
+
         {viz.barras && (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 112 }}>
-            {meses.map((m) => (
-              <div key={m.nome} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ fontSize: 9, color: 'var(--color-neutral-600)' }}>{m.rotulo}</div>
-                <div style={{ width: '100%', background: m.cor, height: m.h, border: `1px solid ${m.borda}` }} />
-                <div style={{ fontSize: 10, fontFamily: 'var(--font-heading)', color: m.texto }}>{m.nome}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 10, height: 88 }}>
+              <div style={{ position: 'absolute', left: 0, right: 0, bottom: viz.metaLinhaH, borderTop: '1px dashed var(--color-neutral-500)', zIndex: 1 }}>
+                <span style={{ position: 'absolute', left: 0, bottom: 2, fontSize: 9, color: 'var(--color-neutral-600)', background: 'var(--color-bg)', paddingRight: 4 }}>meta</span>
               </div>
-            ))}
+              {meses.map((m) => (
+                <div key={m.nome} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
+                  <div style={{ fontSize: 9, color: 'var(--color-neutral-600)' }}>{m.rotulo}</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 3, width: '100%' }}>
+                    <div style={{ width: m.despesaH != null ? 12 : '100%', background: m.cor, height: m.h, border: `1px solid ${m.borda}` }} />
+                    {m.despesaH != null && (
+                      <div style={{ width: 12, background: 'var(--color-neutral-400)', height: m.despesaH }} title={'despesas ' + viz.despesaAtualFmt} />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {meses.map((m) => (
+                <div key={m.nome} style={{ flex: 1, textAlign: 'center', fontSize: 10, fontFamily: 'var(--font-heading)', color: m.texto }}>{m.nome}</div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', fontSize: 10, color: 'var(--color-neutral-600)' }}>
+              <span><span style={{ display: 'inline-block', width: 8, height: 8, background: 'var(--color-accent)', marginRight: 4, verticalAlign: 'middle' }} />faturamento</span>
+              <span><span style={{ display: 'inline-block', width: 8, height: 8, background: 'var(--color-neutral-400)', marginRight: 4, verticalAlign: 'middle' }} />despesas de set</span>
+            </div>
           </div>
         )}
 

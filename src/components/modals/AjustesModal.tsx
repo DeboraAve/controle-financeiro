@@ -5,7 +5,6 @@ import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { aplicarTema, lerTema, type Tema } from '../../lib/theme';
 
-const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as const;
 const TEMAS: { v: Tema; rotulo: string }[] = [
   { v: 'system', rotulo: 'Sistema' },
   { v: 'light', rotulo: 'Claro' },
@@ -13,7 +12,7 @@ const TEMAS: { v: Tema; rotulo: string }[] = [
 ];
 
 export function AjustesModal() {
-  const { modalAjustes, fecharModal, isGestao, grafico, setGrafico, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso } = useApp();
+  const { modalAjustes, fecharModal, isGestao, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso } = useApp();
   const { session, isAdmin, signOut } = useAuth();
   const [tema, setTema] = useState<Tema>(lerTema);
   const escolherTema = (t: Tema) => {
@@ -45,17 +44,6 @@ export function AjustesModal() {
       </div>
       {!isGestao && (
         <>
-          <div className="field">
-            <label>Gráfico do painel</label>
-            <div className="seg" style={{ display: 'flex' }}>
-              {GRAFICOS.map((g) => (
-                <label key={g} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
-                  <input type="radio" name="grafico" checked={grafico === g} onChange={() => setGrafico(g)} />
-                  <span>{g}</span>
-                </label>
-              ))}
-            </div>
-          </div>
           <div className="field">
             <label>Meta do mês (R$)</label>
             <input

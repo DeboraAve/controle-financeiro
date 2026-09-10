@@ -428,7 +428,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const historico = [6800, 7150, 7420, 7900];
     const valores = [...historico, previsto, Math.round(previsto * 1.06)];
     const nomes = ['mai', 'jun', 'jul', 'ago', 'set', 'out'];
-    const maxV = Math.max(...valores);
+    const mesAtualIdx = 4;
+    const maxV = Math.max(...valores, meta, despTotal);
     const meses = valores.map((v, i) => ({
       nome: nomes[i],
       rotulo: (v / 1000).toFixed(1) + 'k',
@@ -436,7 +437,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       cor: i === 4 ? 'var(--color-accent)' : i === 5 ? 'transparent' : 'var(--color-accent-200)',
       borda: i === 5 ? 'var(--color-accent-400)' : i === 4 ? 'var(--color-accent)' : 'var(--color-accent-300)',
       texto: i === 4 ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
+      despesaH: i === mesAtualIdx ? Math.round((despTotal / maxV) * 88) : null,
     }));
+    const metaLinhaH = Math.round((meta / maxV) * 88);
     const pt = (i: number, v: number) => i * 60 + ',' + (108 - (v / maxV) * 100).toFixed(1);
     const recPct = Math.round((recebido / (previsto || 1)) * 100);
     const abPct = Math.round((aberto / (previsto || 1)) * 100);
@@ -838,6 +841,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         barras: vizNome === 'Barras mensais',
         linha: vizNome === 'Linha de caixa',
         anel: vizNome === 'Anel de recebimento',
+        metaLinhaH,
+        despesaAtualFmt: brl(despTotal),
         pontos: valores.slice(0, 5).map((v, i) => pt(i, v)).join(' '),
         pontosProj: [pt(4, valores[4]), pt(5, valores[5])].join(' '),
         anelGrad: 'conic-gradient(var(--color-accent-800) 0 ' + recPct + '%, var(--color-accent-400) 0 ' + (recPct + abPct) + '%, var(--color-neutral-300) 0)',
