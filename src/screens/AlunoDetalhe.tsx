@@ -1,16 +1,36 @@
+import { useState } from 'react';
 import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 import { EvolucaoChart } from '../components/EvolucaoChart';
 import { formatarDesde } from '../lib/calc';
+import { CAMPOS_COMPARAVEIS } from '../lib/avaliacaoCalc';
 
 export function AlunoDetalhe() {
   const { aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao } = useApp();
+  const [metricasVisiveis, setMetricasVisiveis] = useState<Set<string>>(() => new Set(['peso', 'percentualGordura']));
   if (!aluno) return null;
 
-  const pontosPeso = avaliacoesEvolucao.map((av) => ({ rotulo: av.data, valor: av.peso, valorFmt: av.pesoFmt }));
-  const pontosGordura = avaliacoesEvolucao
-    .filter((av) => av.percentualGordura != null)
-    .map((av) => ({ rotulo: av.data, valor: av.percentualGordura as number, valorFmt: av.percentualGorduraFmt }));
+  // Cada campo comparável (peso, IMC, dobras, perimetria...) vira uma opção
+  // de gráfico de evolução — só entra na lista quem tem pelo menos 2
+  // avaliações preenchidas pra esse campo específico.
+  const metricas = CAMPOS_COMPARAVEIS.map((c) => {
+    const pontos = avaliacoesEvolucao
+      .filter((av) => av.bruto[c.key] != null)
+      .map((av) => {
+        const v = av.bruto[c.key] as number;
+        return { rotulo: av.data, valor: v, valorFmt: v.toFixed(1) + (c.unidade ? ' ' + c.unidade : '') };
+      });
+    return { key: c.key, label: c.label, pontos };
+  }).filter((m) => m.pontos.length > 1);
+
+  const toggleMetrica = (key: string) => {
+    setMetricasVisiveis((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -77,11 +97,27 @@ export function AlunoDetalhe() {
         <button className="btn btn-ghost" style={{ alignSelf: 'center', fontSize: 12 }} onClick={abrirExcluirAluno}>Excluir aluno de vez</button>
       </div>
 
-      {(pontosPeso.length > 1 || pontosGordura.length > 1) && (
+      {metricas.length > 0 && (
         <BlueprintCard style={{ gap: 'var(--space-3)' }}>
           <div className="card-kicker" style={{ marginBottom: -4 }}>Evolução</div>
-          {pontosPeso.length > 1 && <EvolucaoChart titulo="Peso" pontos={pontosPeso} />}
-          {pontosGordura.length > 1 && <EvolucaoChart titulo="% de gordura" pontos={pontosGordura} />}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {metricas.map((m) => (
+              <div
+                key={m.key}
+                onClick={() => toggleMetrica(m.key)}
+                className={'tag ' + (metricasVisiveis.has(m.key) ? 'tag-accent' : 'tag-outline')}
+                style={{ cursor: 'pointer' }}
+              >
+                {m.label}
+              </div>
+            ))}
+          </div>
+          {metricas.filter((m) => metricasVisiveis.has(m.key)).map((m) => (
+            <EvolucaoChart key={m.key} titulo={m.label} pontos={m.pontos} />
+          ))}
+          {metricas.every((m) => !metricasVisiveis.has(m.key)) && (
+            <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Escolhe pelo menos uma métrica ali em cima pra ver o gráfico.</div>
+          )}
         </BlueprintCard>
       )}
 

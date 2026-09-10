@@ -22,23 +22,36 @@ export function EvolucaoChart({ titulo, pontos }: { titulo: string; pontos: Pont
   const y = (v: number) => padTop + (h - padTop - padBottom) * (1 - (v - min) / span);
 
   const linha = pontos.map((p, i) => x(i) + ',' + y(p.valor)).join(' ');
+  const total = pontos[pontos.length - 1].valor - pontos[0].valor;
+  const totalFmt = (total >= 0 ? '+' : '') + total.toFixed(1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div className="card-kicker">{titulo}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div className="card-kicker">{titulo}</div>
+        <div style={{ fontSize: 10, color: 'var(--color-neutral-600)' }}>{totalFmt} desde {pontos[0].rotulo}</div>
+      </div>
       <svg viewBox={'0 0 ' + w + ' ' + h} style={{ width: '100%', height: h, display: 'block', overflow: 'visible' }}>
         <polyline points={linha} fill="none" stroke="var(--color-accent)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        {pontos.map((p, i) => (
-          <g key={i}>
-            <circle cx={x(i)} cy={y(p.valor)} r={4} fill="var(--color-accent)" />
-            <text x={x(i)} y={y(p.valor) - 10} textAnchor="middle" fontSize={9} fill="var(--color-text)" fontFamily="var(--font-heading)">
-              {p.valorFmt}
-            </text>
-            <text x={x(i)} y={h - 4} textAnchor="middle" fontSize={8} fill="var(--color-neutral-600)">
-              {p.rotulo}
-            </text>
-          </g>
-        ))}
+        {pontos.map((p, i) => {
+          const delta = i > 0 ? p.valor - pontos[i - 1].valor : null;
+          return (
+            <g key={i}>
+              {delta != null && (
+                <text x={(x(i - 1) + x(i)) / 2} y={(y(pontos[i - 1].valor) + y(p.valor)) / 2 - 6} textAnchor="middle" fontSize={8} fill="var(--color-neutral-600)">
+                  {(delta >= 0 ? '+' : '') + delta.toFixed(1)}
+                </text>
+              )}
+              <circle cx={x(i)} cy={y(p.valor)} r={4} fill="var(--color-accent)" />
+              <text x={x(i)} y={y(p.valor) - 10} textAnchor="middle" fontSize={9} fill="var(--color-text)" fontFamily="var(--font-heading)">
+                {p.valorFmt}
+              </text>
+              <text x={x(i)} y={h - 4} textAnchor="middle" fontSize={8} fill="var(--color-neutral-600)">
+                {p.rotulo}
+              </text>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

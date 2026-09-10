@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import type { DeltaCampo } from './avaliacaoCalc';
 
 export interface AvaliacaoPdfCampo {
   label: string;
@@ -22,12 +23,35 @@ export interface AvaliacaoPdfDados {
   observacoes: string;
 }
 
+export interface AvaliacaoPdfSecoes {
+  gerais: boolean;
+  composicao: boolean;
+  dobras: boolean;
+  perimetria: boolean;
+  comparacao: boolean;
+  observacoes: boolean;
+}
+
+export const AVALIACAO_PDF_SECOES_PADRAO: AvaliacaoPdfSecoes = {
+  gerais: true,
+  composicao: true,
+  dobras: true,
+  perimetria: true,
+  comparacao: true,
+  observacoes: true,
+};
+
+export interface AvaliacaoPdfComparacao {
+  data: string;
+  itens: DeltaCampo[];
+}
+
 const CORAL = [217, 80, 38] as const;
 const CREME = [248, 246, 244] as const;
 const TEXTO = [48, 40, 33] as const;
 const CINZA = [135, 127, 120] as const;
 
-export function gerarPdfAvaliacao(d: AvaliacaoPdfDados): Blob {
+export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSecoes = AVALIACAO_PDF_SECOES_PADRAO, comparacao: AvaliacaoPdfComparacao | null = null): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 48;
@@ -78,31 +102,44 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados): Blob {
     y += 40;
   };
 
-  secao('Dados gerais');
-  linhaCampos(d.gerais);
+  if (secoes.gerais) {
+    secao('Dados gerais');
+    linhaCampos(d.gerais);
+  }
 
-  secao('Composição corporal');
-  const composicao: AvaliacaoPdfCampo[] = [
-    { label: 'IMC', valor: d.imcFmt + ' · ' + d.imcClasse },
-    { label: 'Risco à saúde', valor: d.risco },
-    { label: '% de gordura', valor: d.percentualGorduraFmt },
-    { label: 'Peso gordo', valor: d.pesoGordoFmt },
-    { label: 'Massa magra', valor: d.massaMagraFmt },
-  ];
-  if (d.rcqFmt) composicao.push({ label: 'Relação cintura-quadril', valor: d.rcqFmt });
-  linhaCampos(composicao);
+  if (secoes.composicao) {
+    secao('Composição corporal');
+    const composicao: AvaliacaoPdfCampo[] = [
+      { label: 'IMC', valor: d.imcFmt + ' · ' + d.imcClasse },
+      { label: 'Risco à saúde', valor: d.risco },
+      { label: '% de gordura', valor: d.percentualGorduraFmt },
+      { label: 'Peso gordo', valor: d.pesoGordoFmt },
+      { label: 'Massa magra', valor: d.massaMagraFmt },
+    ];
+    if (d.rcqFmt) composicao.push({ label: 'Relação cintura-quadril', valor: d.rcqFmt });
+    linhaCampos(composicao);
+  }
 
-  if (d.dobras.length) {
+  if (secoes.dobras && d.dobras.length) {
     secao('Dobras cutâneas (mm)');
     linhaCampos(d.dobras, 4);
   }
 
-  if (d.perimetria.length) {
+  if (secoes.perimetria && d.perimetria.length) {
     secao('Perimetria (cm)');
     linhaCampos(d.perimetria, 4);
   }
 
-  if (d.observacoes.trim()) {
+  if (secoes.comparacao && comparacao && comparacao.itens.length) {
+    secao('Comparado com ' + comparacao.data);
+    const campos: AvaliacaoPdfCampo[] = comparacao.itens.map((it) => ({
+      label: it.label,
+      valor: (it.delta >= 0 ? '+' : '') + it.delta.toFixed(1) + (it.unidade ? ' ' + it.unidade : ''),
+    }));
+    linhaCampos(campos, 4);
+  }
+
+  if (secoes.observacoes && d.observacoes.trim()) {
     secao('Observações');
     doc.setTextColor(...TEXTO);
     doc.setFont('helvetica', 'normal');

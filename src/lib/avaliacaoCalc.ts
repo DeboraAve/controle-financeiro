@@ -80,3 +80,78 @@ export function calcularAvaliacao(input: AvaliacaoInput): AvaliacaoResultado {
 
   return { imc, imcClasse: classe, risco, temDobras: true, somaDobras: soma, percentualGordura, pesoGordo, massaMagra };
 }
+
+// Valores numéricos "crus" de uma avaliação — usados só pra comparar duas
+// avaliações entre si (tela e PDF), separado dos campos já formatados como
+// texto que o resto do app usa pra exibir.
+export interface AvaliacaoBruto {
+  peso: number;
+  imc: number;
+  percentualGordura: number | null;
+  massaMagra: number | null;
+  dobraPeitoral: number | null;
+  dobraAxilar: number | null;
+  dobraTriceps: number | null;
+  dobraSubescapular: number | null;
+  dobraAbdominal: number | null;
+  dobraSuprailiaca: number | null;
+  dobraCoxa: number | null;
+  dobraBiceps: number | null;
+  dobraPanturrilha: number | null;
+  perimPescoco: number | null;
+  perimTorax: number | null;
+  perimCintura: number | null;
+  perimAbdomen: number | null;
+  perimQuadril: number | null;
+}
+
+export interface DeltaCampo {
+  label: string;
+  unidade: string;
+  atual: number;
+  anterior: number;
+  delta: number;
+}
+
+export interface CampoAvaliacao {
+  key: keyof AvaliacaoBruto;
+  label: string;
+  unidade: string;
+}
+
+// Catálogo único dos campos que dá pra comparar/plotar — usado tanto pela
+// comparação entre avaliações quanto pelos gráficos de evolução, pra não
+// duplicar a lista de labels em dois lugares.
+export const CAMPOS_COMPARAVEIS: CampoAvaliacao[] = [
+  { key: 'peso', label: 'Peso', unidade: 'kg' },
+  { key: 'imc', label: 'IMC', unidade: '' },
+  { key: 'percentualGordura', label: '% de gordura', unidade: '%' },
+  { key: 'massaMagra', label: 'Massa magra', unidade: 'kg' },
+  { key: 'dobraPeitoral', label: 'Peitoral', unidade: 'mm' },
+  { key: 'dobraAxilar', label: 'Axilar média', unidade: 'mm' },
+  { key: 'dobraTriceps', label: 'Tríceps', unidade: 'mm' },
+  { key: 'dobraSubescapular', label: 'Subescapular', unidade: 'mm' },
+  { key: 'dobraAbdominal', label: 'Abdominal', unidade: 'mm' },
+  { key: 'dobraSuprailiaca', label: 'Suprailíaca', unidade: 'mm' },
+  { key: 'dobraCoxa', label: 'Coxa', unidade: 'mm' },
+  { key: 'dobraBiceps', label: 'Bíceps', unidade: 'mm' },
+  { key: 'dobraPanturrilha', label: 'Panturrilha', unidade: 'mm' },
+  { key: 'perimPescoco', label: 'Pescoço', unidade: 'cm' },
+  { key: 'perimTorax', label: 'Tórax', unidade: 'cm' },
+  { key: 'perimCintura', label: 'Cintura', unidade: 'cm' },
+  { key: 'perimAbdomen', label: 'Abdômen', unidade: 'cm' },
+  { key: 'perimQuadril', label: 'Quadril', unidade: 'cm' },
+];
+
+// Só compara campo que existe nas duas avaliações — se uma delas não tinha
+// perimetria preenchida, por exemplo, esse campo simplesmente não entra.
+export function compararAvaliacoes(atual: AvaliacaoBruto, anterior: AvaliacaoBruto): DeltaCampo[] {
+  const out: DeltaCampo[] = [];
+  for (const c of CAMPOS_COMPARAVEIS) {
+    const va = atual[c.key];
+    const vb = anterior[c.key];
+    if (va == null || vb == null) continue;
+    out.push({ label: c.label, unidade: c.unidade, atual: va, anterior: vb, delta: va - vb });
+  }
+  return out;
+}
