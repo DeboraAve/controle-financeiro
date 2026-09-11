@@ -33,4 +33,5 @@ export interface UiState {
   editDespesaId: string | null;
   editExercicioId: string | null;
   treinoDetalheId: string | null;
+  mesVisualizado: string | null;
 }

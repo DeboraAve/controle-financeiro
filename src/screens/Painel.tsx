@@ -13,7 +13,10 @@ function iniciaisDe(nome: string | undefined, email: string | undefined): string
 }
 
 export function Painel() {
-  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico, isGestao, abrirFecharMes, mesAtualNomeCapAno } = useApp();
+  const {
+    resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico, isGestao, abrirFecharMes, mesAtualNomeCapAno,
+    mesesFechadosDisponiveis, mesVisualizado, setMesVisualizado, fechamentoDoMesVisualizado,
+  } = useApp();
   const { session } = useAuth();
   const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
@@ -27,6 +30,39 @@ export function Painel() {
         <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">{inicial}</div>
       </div>
 
+      {mesesFechadosDisponiveis.length > 0 && (
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Ver mês</label>
+          <select className="input" value={mesVisualizado ?? ''} onChange={(e) => setMesVisualizado(e.target.value || null)}>
+            <option value="">{mesAtualNomeCapAno} (ao vivo)</option>
+            {mesesFechadosDisponiveis.map((m) => <option key={m.mes} value={m.mes}>{m.nome}</option>)}
+          </select>
+        </div>
+      )}
+
+      {fechamentoDoMesVisualizado ? (
+        <BlueprintCard style={{ gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <div className="card-kicker">Fechamento de {fechamentoDoMesVisualizado.nome}</div>
+            <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{fechamentoDoMesVisualizado.qtdAlunos} aluno(s)</div>
+          </div>
+          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 36 }}>{fechamentoDoMesVisualizado.totalFmt}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 4 }}>
+            {fechamentoDoMesVisualizado.porAluno.map((a) => (
+              <div key={a.nome} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span>{a.nome}</span><span style={{ fontFamily: 'var(--font-heading)' }}>{a.totalFmt}</span>
+                </div>
+                <div style={{ height: 5, background: 'var(--color-neutral-200)' }}><div style={{ height: '100%', background: 'var(--color-accent)', width: `${a.pct}%` }} /></div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
+            Isso é o que realmente fechou naquele mês — recebido/em aberto/atrasado só existem pro mês corrente.
+          </div>
+        </BlueprintCard>
+      ) : (
+      <>
       <BlueprintCard style={{ gap: 'var(--space-2)', padding: 'var(--space-4)' }}>
         <div className="card-kicker">Fechamento previsto</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -191,6 +227,8 @@ export function Painel() {
         <div style={{ fontSize: 13, lineHeight: 1.5 }}>{resumo.alerta}</div>
         <button className="btn btn-primary btn-block" onClick={irCobranca}>Abrir cobranças</button>
       </BlueprintCard>
+      </>
+      )}
       <div style={{ height: 6 }} />
     </div>
   );

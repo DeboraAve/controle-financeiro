@@ -32,6 +32,7 @@ const initialUi: UiState = {
   editDespesaId: null,
   editExercicioId: null,
   treinoDetalheId: null,
+  mesVisualizado: null,
 };
 
 interface DomainRaw {
@@ -422,6 +423,30 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const mesAtualNome = nomeMesLongo(mesAtualStr);
     const mesAtualNomeCap = mesAtualNome.charAt(0).toUpperCase() + mesAtualNome.slice(1);
     const mesAtualNomeCapAno = mesAtualNomeCap + ' ' + mesAtualStr.slice(0, 4);
+
+    // Meses já fechados que dá pra escolher e ver de novo — cada um soma o
+    // que realmente fechou naquele mês, não um recálculo em cima do estado
+    // atual dos alunos (por isso alunos inativos/renomeados desde então
+    // continuam aparecendo certos aqui).
+    const mesesFechadosDisponiveis = [...new Set(fechamentosDoOwner.map((f) => f.mes))]
+      .sort()
+      .reverse()
+      .map((mes) => ({ mes, nome: nomeMesLongo(mes) }));
+    const fechamentoDoMesVisualizado = (() => {
+      if (!S.mesVisualizado) return null;
+      const doMes = fechamentosDoOwner.filter((f) => f.mes === S.mesVisualizado);
+      if (doMes.length === 0) return null;
+      const total = doMes.reduce((t, f) => t + f.total, 0);
+      const maiorTotal = Math.max(1, ...doMes.map((f) => f.total));
+      const porAluno = [...doMes]
+        .sort((x, y) => y.total - x.total)
+        .map((f) => ({
+          nome: domainRaw.alunos.find((al) => al.id === f.alunoId)?.nome ?? '(aluno removido)',
+          totalFmt: brl(f.total),
+          pct: Math.round((f.total / maiorTotal) * 100),
+        }));
+      return { mes: S.mesVisualizado, nome: nomeMesLongo(S.mesVisualizado), totalFmt: brl(total), qtdAlunos: doMes.length, porAluno };
+    })();
 
     const soma = (f: (a: Aluno) => boolean) => ativos.filter(f).reduce((t, a) => t + calcs.get(a.id)!.total, 0);
     const previsto = soma(() => true);
@@ -966,6 +991,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       mesAtualNome,
       mesAtualNomeCap,
       mesAtualNomeCapAno,
+      mesesFechadosDisponiveis,
+      mesVisualizado: S.mesVisualizado,
+      setMesVisualizado: (mes: string | null) => patchUi({ mesVisualizado: mes }),
+      fechamentoDoMesVisualizado,
       vencimentoFaixas,
       irCobranca: () => patchUi({ tab: 'cobranca' }),
       tabs: ([
