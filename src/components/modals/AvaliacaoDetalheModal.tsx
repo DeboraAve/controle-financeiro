@@ -4,6 +4,9 @@ import { compararAvaliacoes, type DeltaCampo } from '../../lib/avaliacaoCalc';
 import type { AvaliacaoPdfSecoes } from '../../lib/avaliacaoPdf';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
+import { StepDots } from '../ui/StepDots';
+
+const TOTAL_PASSOS = 2;
 
 function baixarBlob(blob: Blob, nome: string) {
   const url = URL.createObjectURL(blob);
@@ -31,12 +34,14 @@ export function AvaliacaoDetalheModal() {
 
   const [compararComIds, setCompararComIds] = useState<Set<string>>(new Set());
   const [secoes, setSecoes] = useState<AvaliacaoPdfSecoes>({ gerais: true, composicao: true, dobras: true, perimetria: true, comparacao: true, observacoes: true });
+  const [passo, setPasso] = useState(0);
 
   useEffect(() => {
     if (!av) return;
     const idx = avaliacoes.findIndex((x) => x.id === av.id);
     const anterior = idx >= 0 ? avaliacoes[idx + 1] : undefined;
     setCompararComIds(anterior ? new Set([anterior.id]) : new Set());
+    setPasso(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [av?.id]);
 
@@ -115,88 +120,109 @@ export function AvaliacaoDetalheModal() {
       open={modalAvaliacaoDetalhe && !!av}
       onClose={fecharModal}
       title={`Avaliação de ${av?.data ?? ''}`}
-      actions={<Button variant="secondary" onClick={fecharModal}>Fechar</Button>}
+      actions={
+        <>
+          <Button variant="secondary" onClick={passo === 0 ? fecharModal : () => setPasso(0)}>
+            {passo === 0 ? 'Fechar' : 'Voltar'}
+          </Button>
+          {passo === 0 ? (
+            <Button variant="primary" onClick={() => setPasso(1)}>Continuar</Button>
+          ) : (
+            <Button variant="primary" onClick={fecharModal}>Fechar</Button>
+          )}
+        </>
+      }
     >
       {av && (
         <>
-          {outrasAvaliacoes.length > 0 && (
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Comparar com</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {outrasAvaliacoes.map((x) => (
-                  <label
-                    key={x.id}
-                    className={'tag ' + (compararComIds.has(x.id) ? 'tag-accent' : 'tag-outline')}
-                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={compararComIds.has(x.id)}
-                      onChange={() => toggleComparar(x.id)}
-                      style={{ margin: 0 }}
-                    />
-                    {x.data}
-                  </label>
-                ))}
-              </div>
-              {comparadas.length > 0 && (
-                <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
-                  Diferença desde cada data marcada, entre parênteses, ao lado de cada valor.
+          <StepDots total={TOTAL_PASSOS} atual={passo} />
+
+          {passo === 0 && (
+            <>
+              {outrasAvaliacoes.length > 0 && (
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Comparar com</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {outrasAvaliacoes.map((x) => (
+                      <label
+                        key={x.id}
+                        className={'tag ' + (compararComIds.has(x.id) ? 'tag-accent' : 'tag-outline')}
+                        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={compararComIds.has(x.id)}
+                          onChange={() => toggleComparar(x.id)}
+                          style={{ margin: 0 }}
+                        />
+                        {x.data}
+                      </label>
+                    ))}
+                  </div>
+                  {comparadas.length > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
+                      Diferença desde cada data marcada, entre parênteses, ao lado de cada valor.
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          <div className="card" style={{ gap: 6 }}>
-            <div className="card-kicker">Composição corporal</div>
-            {linha('IMC', av.imcFmt + ' · ' + av.imcClasse)}
-            {linha('Risco à saúde', av.risco)}
-            {linha('% de gordura', av.percentualGorduraFmt)}
-            {linha('Massa magra', av.massaMagraFmt)}
-            {av.rcqFmt && linha('Relação cintura-quadril', av.rcqFmt)}
-          </div>
+              <div className="card" style={{ gap: 6 }}>
+                <div className="card-kicker">Composição corporal</div>
+                {linha('IMC', av.imcFmt + ' · ' + av.imcClasse)}
+                {linha('Risco à saúde', av.risco)}
+                {linha('% de gordura', av.percentualGorduraFmt)}
+                {linha('Massa magra', av.massaMagraFmt)}
+                {av.rcqFmt && linha('Relação cintura-quadril', av.rcqFmt)}
+              </div>
 
-          {av.pdfDados.dobras.length > 0 && (
-            <div className="card" style={{ gap: 6 }}>
-              <div className="card-kicker">Dobras cutâneas</div>
-              {av.pdfDados.dobras.map((c) => <div key={c.label}>{linha(c.label, c.valor)}</div>)}
-            </div>
-          )}
-
-          {av.pdfDados.perimetria.length > 0 && (
-            <div className="card" style={{ gap: 6 }}>
-              <div className="card-kicker">Perimetria</div>
-              {av.pdfDados.perimetria.map((c) => <div key={c.label}>{linha(c.label, c.valor)}</div>)}
-            </div>
-          )}
-
-          {av.observacoes && (
-            <div className="card" style={{ gap: 6 }}>
-              <div className="card-kicker">Observações</div>
-              <div style={{ fontSize: 13 }}>{av.observacoes}</div>
-            </div>
-          )}
-
-          <div className="field">
-            <label>O que mandar no PDF</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {SECOES_LABELS.map((s) => (
-                <div
-                  key={s.key}
-                  onClick={() => toggleSecao(s.key)}
-                  className={'tag ' + (secoes[s.key] ? 'tag-accent' : 'tag-outline')}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {s.label}
+              {av.pdfDados.dobras.length > 0 && (
+                <div className="card" style={{ gap: 6 }}>
+                  <div className="card-kicker">Dobras cutâneas</div>
+                  {av.pdfDados.dobras.map((c) => <div key={c.label}>{linha(c.label, c.valor)}</div>)}
                 </div>
-              ))}
-            </div>
-          </div>
+              )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button variant="secondary" style={{ flex: 1 }} onClick={baixar}>Baixar PDF</Button>
-            <Button variant="primary" style={{ flex: 1 }} onClick={compartilhar}>Enviar por WhatsApp</Button>
-          </div>
+              {av.pdfDados.perimetria.length > 0 && (
+                <div className="card" style={{ gap: 6 }}>
+                  <div className="card-kicker">Perimetria</div>
+                  {av.pdfDados.perimetria.map((c) => <div key={c.label}>{linha(c.label, c.valor)}</div>)}
+                </div>
+              )}
+            </>
+          )}
+
+          {passo === 1 && (
+            <>
+              {av.observacoes && (
+                <div className="card" style={{ gap: 6 }}>
+                  <div className="card-kicker">Observações</div>
+                  <div style={{ fontSize: 13 }}>{av.observacoes}</div>
+                </div>
+              )}
+
+              <div className="field">
+                <label>O que mandar no PDF</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {SECOES_LABELS.map((s) => (
+                    <div
+                      key={s.key}
+                      onClick={() => toggleSecao(s.key)}
+                      className={'tag ' + (secoes[s.key] ? 'tag-accent' : 'tag-outline')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {s.label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <Button variant="secondary" style={{ flex: 1 }} onClick={baixar}>Baixar PDF</Button>
+                <Button variant="primary" style={{ flex: 1 }} onClick={compartilhar}>Enviar por WhatsApp</Button>
+              </div>
+            </>
+          )}
         </>
       )}
     </Modal>
