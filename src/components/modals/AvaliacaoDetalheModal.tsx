@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useApp } from '../../state/AppContext';
 import { compararAvaliacoes, type DeltaCampo } from '../../lib/avaliacaoCalc';
 import type { AvaliacaoPdfSecoes } from '../../lib/avaliacaoPdf';
@@ -98,22 +98,26 @@ export function AvaliacaoDetalheModal() {
     baixarBlob(blob, nomeArquivo);
   };
 
-  const linha = (label: string, valor: string) => {
+  // Cartãozinho compacto em grade (2+ por linha) em vez de uma linha
+  // inteira por medida — era isso que fazia até um passo só (5 medidas de
+  // composição + 9 dobras) continuar exigindo rolagem por dentro.
+  const tile = (label: string, valor: string) => {
     const ds = deltaPorLabel.get(label);
     return (
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 6%, transparent)', paddingBottom: 5, gap: 6 }}>
-        <span style={{ color: 'var(--color-neutral-600)' }}>{label}</span>
-        <span style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          {ds?.map(({ data, delta: d }) => (
-            <span key={data} style={{ fontSize: 11, color: d.delta === 0 ? 'var(--color-neutral-600)' : 'var(--color-accent-700)' }}>
-              ({(d.delta >= 0 ? '+' : '') + d.delta.toFixed(1) + (d.unidade ? ' ' + d.unidade : '')} · {data})
-            </span>
-          ))}
-          <span style={{ fontFamily: 'var(--font-heading)' }}>{valor}</span>
-        </span>
+      <div key={label} style={{ background: 'var(--surface-sunken)', borderRadius: 'var(--radius-md)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <span style={{ fontSize: 10, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-neutral-600)' }}>{label}</span>
+        <span style={{ fontFamily: 'var(--font-heading)', fontSize: 14, overflowWrap: 'break-word' }}>{valor}</span>
+        {ds?.map(({ data, delta: d }) => (
+          <span key={data} style={{ fontSize: 10, color: d.delta === 0 ? 'var(--color-neutral-600)' : 'var(--color-accent-700)' }}>
+            {(d.delta >= 0 ? '+' : '') + d.delta.toFixed(1) + (d.unidade ? ' ' + d.unidade : '')} · {data}
+          </span>
+        ))}
       </div>
     );
   };
+  const grade = (children: ReactNode) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 6 }}>{children}</div>
+  );
 
   return (
     <Modal
@@ -169,24 +173,28 @@ export function AvaliacaoDetalheModal() {
 
               <div className="card" style={{ gap: 6 }}>
                 <div className="card-kicker">Composição corporal</div>
-                {linha('IMC', av.imcFmt + ' · ' + av.imcClasse)}
-                {linha('Risco à saúde', av.risco)}
-                {linha('% de gordura', av.percentualGorduraFmt)}
-                {linha('Massa magra', av.massaMagraFmt)}
-                {av.rcqFmt && linha('Relação cintura-quadril', av.rcqFmt)}
+                {grade(
+                  <>
+                    {tile('IMC', av.imcFmt + ' · ' + av.imcClasse)}
+                    {tile('Risco à saúde', av.risco)}
+                    {tile('% de gordura', av.percentualGorduraFmt)}
+                    {tile('Massa magra', av.massaMagraFmt)}
+                    {av.rcqFmt && tile('Relação cintura-quadril', av.rcqFmt)}
+                  </>,
+                )}
               </div>
 
               {av.pdfDados.dobras.length > 0 && (
                 <div className="card" style={{ gap: 6 }}>
                   <div className="card-kicker">Dobras cutâneas</div>
-                  {av.pdfDados.dobras.map((c) => <div key={c.label}>{linha(c.label, c.valor)}</div>)}
+                  {grade(av.pdfDados.dobras.map((c) => tile(c.label, c.valor)))}
                 </div>
               )}
 
               {av.pdfDados.perimetria.length > 0 && (
                 <div className="card" style={{ gap: 6 }}>
                   <div className="card-kicker">Perimetria</div>
-                  {av.pdfDados.perimetria.map((c) => <div key={c.label}>{linha(c.label, c.valor)}</div>)}
+                  {grade(av.pdfDados.perimetria.map((c) => tile(c.label, c.valor)))}
                 </div>
               )}
             </>

@@ -49,11 +49,23 @@ a:hover {
    notch. Só no celular — no desktop o `.sidenav` sticky (ver a media
    query lá embaixo) depende do documento inteiro rolando. */
 @media (max-width: 899px) {
-  html, body, #root {
+  html, body {
+    /* `100vh` no Safari do iPhone mede como se a barra de navegador
+       estivesse sempre escondida — maior que a tela visível de verdade
+       quando ela aparece, e é exatamente isso que sobrava como espaço
+       vazio embaixo da tabbar e deixava a página "escapar" pra rolar de
+       novo. `100dvh` acompanha a altura visível de verdade a cada
+       momento; a declaração de 100% antes dela é só um fallback pra
+       navegador antigo sem dvh, sobrescrita na hora em quem entende. */
     height: 100%;
+    height: 100dvh;
     overflow: hidden;
   }
-  .app-shell {
+  #root, .app-shell {
+    /* Zera o `min-height: 100vh` antigo (ver regras lá em cima) — ele
+       sozinho já forçava a altura de volta pro tamanho grande errado,
+       mesmo com html/body travados certos. */
+    min-height: 0;
     height: 100%;
   }
   .app-main {
