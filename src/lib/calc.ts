@@ -17,6 +17,13 @@ export function diaVencimentoDe(desde: string): number | null {
   return dia >= 1 && dia <= 31 ? dia : null;
 }
 
+// Converte uma data ISO ("2026-09-15", vinda de <input type="date">) pro
+// formato "DD/MM" que as sessões usam.
+export function diaDeIso(dataIso: string): string {
+  const m = RE_DATA_ISO.exec(dataIso);
+  return m ? `${m[3]}/${m[2]}` : dataIso;
+}
+
 export function formatarDesde(desde: string): string {
   const m = RE_DATA_ISO.exec(desde);
   if (!m) return desde; // cadastro antigo — mostra do jeito que foi digitado
@@ -57,8 +64,12 @@ export interface Calculo {
   total: number;
 }
 
+// Aluno "valor por aula" não tem pacote — `a.base` fica 0 e `a.valorAula`
+// carrega a taxa por aula diretamente (em vez de derivada de base/previstas).
+// Toda aula dada é uma sessão "extra" (nada pré-gerado no mês), então o
+// total já sai certo pela mesma soma de sempre: base(0) + extras − nada.
 export function calc(a: Aluno): Calculo {
-  const valorAula = a.base / a.previstas;
+  const valorAula = a.valorAula ?? a.base / a.previstas;
   const canceladas = a.sessoes.filter((s) => s.s === 'cancelada').length;
   const extras = a.sessoes.filter((s) => s.s === 'extra').length;
   const descCancel = canceladas * valorAula;

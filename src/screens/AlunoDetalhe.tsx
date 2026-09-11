@@ -5,12 +5,15 @@ import { EvolucaoChart } from '../components/EvolucaoChart';
 import { formatarDesde } from '../lib/calc';
 import { CAMPOS_COMPARAVEIS } from '../lib/avaliacaoCalc';
 
+const hoje = new Date().toISOString().slice(0, 10);
+
 export function AlunoDetalhe() {
   const {
-    aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao,
+    aluno, voltar, addExtra, confirmarAulaEmData, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao,
     treinoAtivo, treinosArquivados, abrirMontarTreino, abrirExercicios, mesAtualNome,
   } = useApp();
   const [metricasVisiveis, setMetricasVisiveis] = useState<Set<string>>(() => new Set(['peso', 'percentualGordura']));
+  const [dataAulaAvulsa, setDataAulaAvulsa] = useState('');
   if (!aluno) return null;
 
   // Cada campo comparável (peso, IMC, dobras, perimetria...) vira uma opção
@@ -23,8 +26,14 @@ export function AlunoDetalhe() {
         const v = av.bruto[c.key] as number;
         return { rotulo: av.data, valor: v, valorFmt: v.toFixed(1) + (c.unidade ? ' ' + c.unidade : '') };
       });
-    return { key: c.key, label: c.label, pontos };
+    return { key: c.key, label: c.label, categoria: c.categoria, pontos };
   }).filter((m) => m.pontos.length > 1);
+  const metricasPorCategoria = new Map<string, typeof metricas>();
+  for (const m of metricas) {
+    const lista = metricasPorCategoria.get(m.categoria) ?? [];
+    lista.push(m);
+    metricasPorCategoria.set(m.categoria, lista);
+  }
 
   const toggleMetrica = (key: string) => {
     setMetricasVisiveis((s) => {
@@ -74,9 +83,12 @@ export function AlunoDetalhe() {
 
       <BlueprintCard style={{ gap: 'var(--space-3)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div className="card-kicker">Aulas do mês</div>
-          <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>toque pra cancelar</div>
+          <div className="card-kicker">{aluno.ehValorPorAula ? 'Aulas confirmadas' : 'Aulas do mês'}</div>
+          <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{aluno.ehValorPorAula ? 'toque pra desfazer' : 'toque pra cancelar'}</div>
         </div>
+        {aluno.sessoes.length === 0 && aluno.ehValorPorAula && (
+          <div style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Nenhuma aula confirmada ainda esse mês.</div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 7 }}>
           {aluno.sessoes.map((s) => (
             <div key={s.id} onClick={s.toggle} style={{ cursor: 'pointer', border: `1px solid ${s.borda}`, background: s.fundo, color: s.cor, padding: '7px 4px', textAlign: 'center' }}>
@@ -85,10 +97,30 @@ export function AlunoDetalhe() {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button className="btn btn-secondary" onClick={addExtra}>+ Aula extra</button>
-          <button className="btn btn-secondary" onClick={limparAjustes}>Zerar ajustes</button>
-        </div>
+        {aluno.ehValorPorAula ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <button className="btn btn-secondary" onClick={addExtra}>+ Aula dada hoje</button>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <input className="input" type="date" max={hoje} value={dataAulaAvulsa} onChange={(e) => setDataAulaAvulsa(e.target.value)} style={{ flex: 1 }} />
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  if (dataAulaAvulsa) {
+                    confirmarAulaEmData(dataAulaAvulsa);
+                    setDataAulaAvulsa('');
+                  }
+                }}
+              >
+                + Confirmar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <button className="btn btn-secondary" onClick={addExtra}>+ Aula extra</button>
+            <button className="btn btn-secondary" onClick={limparAjustes}>Zerar ajustes</button>
+          </div>
+        )}
       </BlueprintCard>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -103,15 +135,22 @@ export function AlunoDetalhe() {
       {metricas.length > 0 && (
         <BlueprintCard style={{ gap: 'var(--space-3)' }}>
           <div className="card-kicker" style={{ marginBottom: -4 }}>Evolução</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {metricas.map((m) => (
-              <div
-                key={m.key}
-                onClick={() => toggleMetrica(m.key)}
-                className={'tag ' + (metricasVisiveis.has(m.key) ? 'tag-accent' : 'tag-outline')}
-                style={{ cursor: 'pointer' }}
-              >
-                {m.label}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[...metricasPorCategoria.entries()].map(([categoria, itens]) => (
+              <div key={categoria} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', textTransform: 'uppercase', letterSpacing: 0.4 }}>{categoria}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {itens.map((m) => (
+                    <div
+                      key={m.key}
+                      onClick={() => toggleMetrica(m.key)}
+                      className={'tag ' + (metricasVisiveis.has(m.key) ? 'tag-accent' : 'tag-outline')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {m.label}
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

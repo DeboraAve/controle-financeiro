@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { flushSync } from 'react-dom';
 import type { Academia, Aluno, Despesa, ModeloCobranca } from '../data/model';
 import { ACADEMIA_MODELOS, CATS, dia2, iniciais } from '../data/seed';
-import { brl, calc, diaVencimentoDe, mesAtual, mesSeguinte, nomeMesAbrev, nomeMesLongo } from '../lib/calc';
+import { brl, calc, diaDeIso, diaVencimentoDe, mesAtual, mesSeguinte, nomeMesAbrev, nomeMesLongo } from '../lib/calc';
 import { calcularAvaliacao, calcularRcq } from '../lib/avaliacaoCalc';
 import * as db from '../lib/db';
 import { useAuth } from './AuthContext';
@@ -74,6 +74,7 @@ export interface AlunoDetalheVm {
   extrasFmt: string;
   totalFmt: string;
   valorAulaFmt: string;
+  ehValorPorAula: boolean;
   temFerias: boolean;
   canceladasTxt: string;
   extrasTxt: string;
@@ -99,8 +100,9 @@ export interface AlunoDetalheVm {
 export interface AlunoFormPayload {
   nome: string;
   academiaId: string | null;
-  planoTipo: 'Pacote' | 'Mensalidade fixa';
+  planoTipo: 'Pacote' | 'Valor por aula';
   valorPacote: number;
+  valorAula: number;
   diasSemana: number[];
   aulasPrevistas: number;
   horariosPorDia: Record<number, string>;
@@ -640,6 +642,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         extrasFmt: brl(c.totalExtras),
         totalFmt: brl(c.total),
         valorAulaFmt: brl(c.valorAula),
+        ehValorPorAula: a.valorAula != null,
         temFerias: c.ferias > 0,
         canceladasTxt: c.canceladas + (c.canceladas === 1 ? ' aula cancelada' : ' aulas canceladas'),
         extrasTxt: c.extras + (c.extras === 1 ? ' aula extra' : ' aulas extras'),
@@ -663,7 +666,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         sessoes: a.sessoes.map((s) => ({
           id: s.id,
           dia: s.dia.slice(0, 2),
-          rotulo: s.s === 'cancelada' ? 'cancel.' : s.s === 'extra' ? 'extra' : 'ok',
+          rotulo: s.s === 'cancelada' ? 'cancel.' : s.s === 'extra' ? (a.valorAula != null ? 'dada' : 'extra') : 'ok',
           borda: s.s === 'cancelada' ? 'var(--color-neutral-400)' : s.s === 'extra' ? 'var(--color-accent-800)' : 'var(--color-divider)',
           fundo: s.s === 'extra' ? 'var(--color-accent-800)' : s.s === 'cancelada' ? 'var(--color-neutral-200)' : 'transparent',
           cor: s.s === 'extra' ? 'var(--color-bg)' : s.s === 'cancelada' ? 'var(--color-neutral-600)' : 'var(--color-text)',
@@ -1027,7 +1030,14 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       voltar: () => patchUi({ tab: 'alunos', alunoId: null }),
       addExtra: () => {
         if (!a) return;
-        const dia = dia2(28);
+        const dia = dia2(new Date().getDate());
+        db.insertSessaoExtra(a.id, dia, effectiveOwnerId || undefined)
+          .then((nova) => patchAlunoLocal(a.id, (x) => ({ ...x, sessoes: [...x.sessoes, nova] })))
+          .catch(reportError);
+      },
+      confirmarAulaEmData: (dataIso: string) => {
+        if (!a || !dataIso) return;
+        const dia = diaDeIso(dataIso);
         db.insertSessaoExtra(a.id, dia, effectiveOwnerId || undefined)
           .then((nova) => patchAlunoLocal(a.id, (x) => ({ ...x, sessoes: [...x.sessoes, nova] })))
           .catch(reportError);
@@ -1214,15 +1224,20 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         }
         if (S.editAlunoId) {
           const id = S.editAlunoId;
-          const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + payload.aulasPrevistas + ' aulas' : 'Mensalidade fixa';
+          // Edição não muda o tipo de cobrança (o formulário esconde o
+          // seletor nesse caso) — mantém o que o aluno já tinha.
+          const atualEditado = domain.alunos.find((al) => al.id === id);
+          const ehValorPorAula = atualEditado?.valorAula != null;
+          const plano = ehValorPorAula ? 'Valor por aula' : 'Pacote ' + payload.aulasPrevistas + ' aulas';
           const campos = {
             nome: payload.nome,
             inicial: iniciais(payload.nome),
             academiaId: payload.academiaId,
             plano,
-            base: payload.valorPacote,
-            previstas: payload.aulasPrevistas,
-            horario: payload.horario,
+            base: ehValorPorAula ? 0 : payload.valorPacote,
+            previstas: ehValorPorAula ? 0 : payload.aulasPrevistas,
+            valorAula: ehValorPorAula ? payload.valorAula : null,
+            horario: ehValorPorAula ? '' : payload.horario,
             fone: payload.fone,
             desde: payload.desde,
           };
@@ -1231,6 +1246,34 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           showToast(payload.nome + ' atualizado.');
           patchUi({ modal: null, editAlunoId: null });
           return Promise.resolve();
+        } else if (payload.planoTipo === 'Valor por aula') {
+          if (payload.valorAula <= 0) {
+            showToast('Preenche o valor por aula.');
+            return Promise.resolve();
+          }
+          const campos = {
+            nome: payload.nome,
+            inicial: iniciais(payload.nome),
+            academiaId: payload.academiaId,
+            plano: 'Valor por aula',
+            base: 0,
+            previstas: 0,
+            valorAula: payload.valorAula,
+            horario: '',
+            fone: payload.fone,
+            desde: payload.desde,
+          };
+          // Nasce sem nenhuma aula no mês — cada aula dada é confirmada
+          // depois (vira uma sessão "extra", ver AlunoDetalhe).
+          return db
+            .insertAluno(campos, [], effectiveOwnerId || undefined)
+            .then((novo) => {
+              setDomainRaw((s) => ({ ...s, alunos: [...s.alunos, novo] }));
+              if (effectiveOwnerId) setDonoPorAluno((s) => ({ ...s, [novo.id]: effectiveOwnerId }));
+              showToast(payload.nome + ' cadastrado.');
+              patchUi({ modal: null, editAlunoId: null });
+            })
+            .catch(reportError);
         } else {
           if (payload.diasSemana.length === 0) {
             showToast('Marca pelo menos um dia da semana das aulas.');
@@ -1250,7 +1293,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
             horaUnica != null
               ? diasOrdenados.map(nomeDia).join('/') + (horaUnica ? ' · ' + horaUnica : '')
               : diasOrdenados.map((d, i) => nomeDia(d) + (horasPorDia[i] ? ' ' + horasPorDia[i] : '')).join(' · ');
-          const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + previstas + ' aulas' : 'Mensalidade fixa';
+          const plano = 'Pacote ' + previstas + ' aulas';
           const campos = {
             nome: payload.nome,
             inicial: iniciais(payload.nome),
@@ -1258,6 +1301,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
             plano,
             base: payload.valorPacote,
             previstas,
+            valorAula: null,
             horario,
             fone: payload.fone,
             desde: payload.desde,

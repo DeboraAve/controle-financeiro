@@ -7,14 +7,16 @@ import { IconeCarregando } from '../ui/icons';
 
 const hoje = new Date().toISOString().slice(0, 10);
 
-const PLANO_TIPOS = ['Pacote', 'Mensalidade fixa'] as const;
+const PLANO_TIPOS = ['Pacote', 'Valor por aula'] as const;
 const DIAS_SEMANA = [
   { v: 0, l: 'D' }, { v: 1, l: 'S' }, { v: 2, l: 'T' }, { v: 3, l: 'Q' }, { v: 4, l: 'Q' }, { v: 5, l: 'S' }, { v: 6, l: 'S' },
 ];
 const NOMES_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
+// Cadastro antigo pode ter "Mensalidade fixa" salvo (opção removida — nunca
+// teve comportamento diferente de Pacote, só o texto) — trata como Pacote.
 function planoTipoDe(plano: string): (typeof PLANO_TIPOS)[number] {
-  return plano.startsWith('Pacote') ? 'Pacote' : 'Mensalidade fixa';
+  return plano === 'Valor por aula' ? 'Valor por aula' : 'Pacote';
 }
 
 export function AlunoFormModal() {
@@ -24,6 +26,7 @@ export function AlunoFormModal() {
   const [academiaId, setAcademiaId] = useState<string>('');
   const [planoTipo, setPlanoTipo] = useState<(typeof PLANO_TIPOS)[number]>('Pacote');
   const [valorPacote, setValorPacote] = useState('');
+  const [valorAula, setValorAula] = useState('');
   const [aulasPrevistas, setAulasPrevistas] = useState('8');
   const [diasSemana, setDiasSemana] = useState<number[]>([1, 3]);
   const [horariosPorDia, setHorariosPorDia] = useState<Record<number, string>>({});
@@ -40,6 +43,7 @@ export function AlunoFormModal() {
       setAcademiaId(editandoAluno.academiaId != null ? String(editandoAluno.academiaId) : '');
       setPlanoTipo(planoTipoDe(editandoAluno.plano));
       setValorPacote(String(editandoAluno.base));
+      setValorAula(editandoAluno.valorAula != null ? String(editandoAluno.valorAula) : '');
       setAulasPrevistas(String(editandoAluno.previstas));
       setHorario(editandoAluno.horario);
       setFone(editandoAluno.fone);
@@ -49,6 +53,7 @@ export function AlunoFormModal() {
       setAcademiaId('');
       setPlanoTipo('Pacote');
       setValorPacote('');
+      setValorAula('');
       setAulasPrevistas('8');
       setDiasSemana([1, 3]);
       setHorariosPorDia({});
@@ -79,6 +84,7 @@ export function AlunoFormModal() {
       academiaId: academiaId || null,
       planoTipo,
       valorPacote: parseInt(valorPacote || '0', 10),
+      valorAula: parseInt(valorAula || '0', 10),
       diasSemana,
       aulasPrevistas: Math.max(1, parseInt(aulasPrevistas || '1', 10)),
       horariosPorDia,
@@ -119,35 +125,54 @@ export function AlunoFormModal() {
         </select>
       </div>
 
-      <div className="field">
-        <label>Tipo de cobrança</label>
-        <div className="seg" style={{ display: 'flex' }}>
-          {PLANO_TIPOS.map((t) => (
-            <label key={t} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
-              <input type="radio" name="planoTipo" checked={planoTipo === t} onChange={() => setPlanoTipo(t)} />
-              <span>{t}</span>
-            </label>
-          ))}
+      {!editandoAluno && (
+        <div className="field">
+          <label>Tipo de cobrança</label>
+          <div className="seg" style={{ display: 'flex' }}>
+            {PLANO_TIPOS.map((t) => (
+              <label key={t} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
+                <input type="radio" name="planoTipo" checked={planoTipo === t} onChange={() => setPlanoTipo(t)} />
+                <span>{t}</span>
+              </label>
+            ))}
+          </div>
+          {planoTipo === 'Valor por aula' && (
+            <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
+              Sem pacote fixo — o aluno começa o mês sem nenhuma aula, e você confirma cada aula dada pelo detalhe dele. O total do mês é a contagem × o valor por aula.
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {editandoAluno ? (
-        <>
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <div className="field" style={{ flex: 1 }}>
-              <label>Valor do pacote (R$)</label>
-              <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
-            </div>
-            <div className="field" style={{ flex: 1 }}>
-              <label>Nº de aulas previstas</label>
-              <input className="input" value={aulasPrevistas} onChange={(e) => setAulasPrevistas(e.target.value.replace(/[^\d]/g, ''))} placeholder="8" />
-            </div>
-          </div>
+        planoTipo === 'Valor por aula' ? (
           <div className="field">
-            <label>Horário</label>
-            <input className="input" value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: Ter · Qui 07h" />
+            <label>Valor por aula (R$)</label>
+            <input className="input" value={valorAula} onChange={(e) => setValorAula(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
           </div>
-        </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+              <div className="field" style={{ flex: 1 }}>
+                <label>Valor do pacote (R$)</label>
+                <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label>Nº de aulas previstas</label>
+                <input className="input" value={aulasPrevistas} onChange={(e) => setAulasPrevistas(e.target.value.replace(/[^\d]/g, ''))} placeholder="8" />
+              </div>
+            </div>
+            <div className="field">
+              <label>Horário</label>
+              <input className="input" value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: Ter · Qui 07h" />
+            </div>
+          </>
+        )
+      ) : planoTipo === 'Valor por aula' ? (
+        <div className="field">
+          <label>Valor por aula (R$)</label>
+          <input className="input" value={valorAula} onChange={(e) => setValorAula(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+        </div>
       ) : (
         <>
           <div className="field">

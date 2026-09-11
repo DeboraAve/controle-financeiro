@@ -25,6 +25,9 @@ export interface Aluno {
   plano: string;
   base: number;
   previstas: number;
+  // Só preenchido pra aluno "valor por aula" — sem pacote fixo, o total do
+  // mês é a contagem de aulas confirmadas × esse valor (ver lib/calc.ts).
+  valorAula: number | null;
   status: StatusAluno;
   pag: PagStatus;
   atraso?: number;

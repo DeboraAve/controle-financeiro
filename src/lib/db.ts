@@ -20,6 +20,7 @@ interface AlunoRow {
   plano: string;
   base: number;
   previstas: number;
+  valor_aula: number | null;
   status: StatusAluno;
   pag: PagStatus;
   atraso: number | null;
@@ -99,6 +100,7 @@ function alunoFromRow(r: AlunoRow, sessoes: Sessao[]): Aluno {
     plano: r.plano,
     base: r.base,
     previstas: r.previstas,
+    valorAula: r.valor_aula,
     status: r.status,
     pag: r.pag,
     atraso: r.atraso ?? undefined,
@@ -458,6 +460,7 @@ export interface AlunoInsertPayload {
   plano: string;
   base: number;
   previstas: number;
+  valorAula: number | null;
   horario: string;
   fone: string;
   desde: string;
@@ -474,6 +477,7 @@ export async function insertAluno(payload: AlunoInsertPayload, sessoesIniciais: 
       plano: payload.plano,
       base: payload.base,
       previstas: payload.previstas,
+      valor_aula: payload.valorAula,
       horario: payload.horario,
       fone: payload.fone,
       desde: payload.desde,
