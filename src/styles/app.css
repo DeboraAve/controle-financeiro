@@ -37,6 +37,33 @@ a:hover {
   flex-direction: column;
 }
 
+/* No celular, quem rolava até aqui era o `body` inteiro — sem limite
+   próprio de altura, então o "rubber-band bounce" do iOS arrastava a
+   página inteira (inclusive o que deveria ficar fixo por baixo da barra
+   de status/notch), e por um instante dava pra ver o relógio do celular
+   se misturando com o conteúdo. `overscroll-behavior` sozinho (tentativa
+   anterior) não resolve isso — ele só impede o scroll "vazar" pro pai,
+   não o próprio bounce do elemento que rola. A correção de verdade é
+   travar `html`/`body` do tamanho exato da tela e mover a rolagem de
+   verdade pra dentro do `.app-main`, que nunca fica embaixo da área do
+   notch. Só no celular — no desktop o `.sidenav` sticky (ver a media
+   query lá embaixo) depende do documento inteiro rolando. */
+@media (max-width: 899px) {
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+  .app-shell {
+    height: 100%;
+  }
+  .app-main {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+}
+
 .app-content {
   flex: 1;
   width: 100%;

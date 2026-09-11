@@ -163,6 +163,15 @@
   --brand-solid-hover: var(--color-pink-solido-hover);
   --brand-solid-active: var(--color-pink-solido-active);
 
+  /* Fundo de chip "selecionado" (seletor de métrica, dias da semana,
+     categoria...) — no claro é só a rampa accent de sempre. No escuro
+     esses chips se repetem muitos de uma vez na mesma tela (ex.: o
+     seletor de métricas da Evolução), e um bloco escuro-rosado atrás de
+     cada um empilhado lado a lado pesa a tela inteira pra rosa; ver
+     redefinição abaixo nos blocos de dark mode. */
+  --chip-selected-bg: var(--color-accent-100);
+  --chip-selected-text: var(--color-accent-800);
+
   /* ── Status ──────────────────────────────────────────────────────────
      Segue o próprio mapeamento da Impulsa: rosa também é a cor de
      cobrança em aberto/atrasada (o kit não define um vermelho de alarme
@@ -304,6 +313,13 @@
     --status-ok-bg: color-mix(in srgb, var(--color-mint) 18%, var(--color-ink));
     --status-neutral: var(--color-neutral-700);
     --status-neutral-bg: var(--color-neutral-100);
+
+    /* Chip selecionado vira claro (quase branco) com texto rosa sólido
+       em vez do fundo escuro-rosado da rampa accent — o mesmo tanto de
+       "selecionado" fica evidente, só que sem pesar a tela de rosa
+       escuro quando vários chips aparecem juntos. */
+    --chip-selected-bg: var(--color-off-white);
+    --chip-selected-text: var(--color-pink-solido);
   }
 }
 
@@ -365,6 +381,9 @@
   --status-ok-bg: color-mix(in srgb, var(--color-mint) 18%, var(--color-ink));
   --status-neutral: var(--color-neutral-700);
   --status-neutral-bg: var(--color-neutral-100);
+
+  --chip-selected-bg: var(--color-off-white);
+  --chip-selected-text: var(--color-pink-solido);
 }
 
 /* Respeita quem pediu menos movimento no sistema: as durações zeram e

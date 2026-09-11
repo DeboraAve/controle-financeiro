@@ -5,10 +5,19 @@ const LIMIAR_PX = 64;
 const RESISTENCIA = 0.5; // o indicador anda metade do que o dedo arrasta
 const TETO_PX = 90;
 
+// No celular quem rola é o `.app-main` (ver app.css — html/body ficam
+// travados pra não dar o bounce do iOS); no desktop continua sendo o
+// documento. Soma os dois em vez de escolher um, já que só um dos dois é
+// não-zero dependendo do breakpoint.
+function scrollAtual(): number {
+  const main = document.querySelector('.app-main');
+  return (main?.scrollTop ?? 0) + window.scrollY;
+}
+
 /** Puxar pra baixo no topo da lista busca os dados de novo — só ativa
- * quando a página já está no topo (`window.scrollY === 0`), pra não
- * competir com o scroll normal. Pointer Events, sem lib de gestos, mesma
- * linha do drag-to-dismiss do Modal. */
+ * quando a página já está no topo, pra não competir com o scroll normal.
+ * Pointer Events, sem lib de gestos, mesma linha do drag-to-dismiss do
+ * Modal. */
 export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promise<unknown>; children: ReactNode }) {
   const [puxado, setPuxado] = useState(0);
   const [emGesto, setEmGesto] = useState(false);
@@ -17,7 +26,7 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promis
   const startYRef = useRef(0);
 
   const aoPressionar = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (atualizando || window.scrollY > 0) return;
+    if (atualizando || scrollAtual() > 0) return;
     arrastandoRef.current = true;
     startYRef.current = e.clientY;
     setEmGesto(true);
@@ -26,7 +35,7 @@ export function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promis
   const aoMover = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!arrastandoRef.current) return;
     const dy = e.clientY - startYRef.current;
-    if (dy <= 0 || window.scrollY > 0) {
+    if (dy <= 0 || scrollAtual() > 0) {
       arrastandoRef.current = false;
       setEmGesto(false);
       setPuxado(0);
