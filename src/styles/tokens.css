@@ -172,6 +172,13 @@
   --chip-selected-bg: var(--color-accent-100);
   --chip-selected-text: var(--color-accent-800);
 
+  /* Contorno do chip "não selecionado" — no claro segue sendo rosa (linha
+     fina, não pesa). No escuro vira neutro: uma opção ainda não marcada
+     não é título, botão nem área de atenção, então não precisa do rosa —
+     só o chip selecionado e os acentos de verdade usam a cor da marca. */
+  --chip-outline-border: var(--color-accent);
+  --chip-outline-text: var(--color-accent);
+
   /* ── Status ──────────────────────────────────────────────────────────
      Segue o próprio mapeamento da Impulsa: rosa também é a cor de
      cobrança em aberto/atrasada (o kit não define um vermelho de alarme
@@ -320,6 +327,8 @@
        escuro quando vários chips aparecem juntos. */
     --chip-selected-bg: var(--color-off-white);
     --chip-selected-text: var(--color-pink-solido);
+    --chip-outline-border: var(--color-neutral-400);
+    --chip-outline-text: var(--color-neutral-700);
   }
 }
 
@@ -384,6 +393,8 @@
 
   --chip-selected-bg: var(--color-off-white);
   --chip-selected-text: var(--color-pink-solido);
+  --chip-outline-border: var(--color-neutral-400);
+  --chip-outline-text: var(--color-neutral-700);
 }
 
 /* Respeita quem pediu menos movimento no sistema: as durações zeram e

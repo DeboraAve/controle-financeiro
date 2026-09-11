@@ -163,7 +163,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .tag-accent { background: var(--chip-selected-bg); color: var(--chip-selected-text); }
 .tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
 .tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
-.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+.tag-outline { border: 1px solid var(--chip-outline-border); color: var(--chip-outline-text); }
 .tag-danger { background: var(--status-danger-bg); color: var(--status-danger); }
 .tag-warning { background: var(--status-warning-bg); color: var(--status-warning); }
 .tag-ok { background: var(--status-ok-bg); color: var(--status-ok); }
