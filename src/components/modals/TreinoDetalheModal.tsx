@@ -15,7 +15,7 @@ function baixarBlob(blob: Blob, nome: string) {
 }
 
 export function TreinoDetalheModal() {
-  const { modalTreinoDetalhe, treinoDetalheAtual: t, aluno, excluirTreino, fecharModal } = useApp();
+  const { modalTreinoDetalhe, treinoDetalheAtual: t, aluno, excluirTreino, abrirEditarTreino, fecharModal } = useApp();
 
   const pdfDados = (): TreinoPdfDados | null => {
     if (!t || !aluno) return null;
@@ -23,7 +23,17 @@ export function TreinoDetalheModal() {
       alunoNome: aluno.nome,
       nome: t.nome,
       data: t.dataFmt,
-      dias: t.dias.map((d) => ({ nome: d.nome, itens: d.itens.map((it) => ({ exercicioNome: it.exercicioNome, resumo: it.resumo, observacoes: it.observacoes })) })),
+      dias: t.dias.map((d) => ({
+        nome: d.nome,
+        itens: d.itens.map((it) => ({
+          exercicioNome: it.exercicioNome,
+          series: it.series,
+          repeticoes: it.repeticoes,
+          carga: it.carga,
+          descanso: it.descanso,
+          observacoes: it.observacoes,
+        })),
+      })),
     };
   };
 
@@ -84,6 +94,7 @@ export function TreinoDetalheModal() {
             </div>
           ))}
 
+          <Button variant="secondary" block onClick={() => abrirEditarTreino(t.id)}>Editar treino</Button>
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <Button variant="secondary" style={{ flex: 1 }} onClick={baixar}>Baixar PDF</Button>
             <Button variant="primary" style={{ flex: 1 }} onClick={compartilhar}>Enviar por WhatsApp</Button>

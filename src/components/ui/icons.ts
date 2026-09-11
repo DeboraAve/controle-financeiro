@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
+  ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleX,
@@ -44,6 +45,7 @@ export const IconeVoltar = ArrowLeft;
 export const IconeMais = Plus;
 export const IconeBusca = Search;
 export const IconeEditar = Pencil;
+export const IconeExpandir = ChevronDown;
 export const IconeExcluir = Trash2;
 export const IconeConfirmar = Check;
 

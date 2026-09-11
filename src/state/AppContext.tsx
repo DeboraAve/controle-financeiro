@@ -35,6 +35,7 @@ const initialUi: UiState = {
   editDespesaId: null,
   editExercicioId: null,
   treinoDetalheId: null,
+  editTreinoId: null,
   mesVisualizado: null,
 };
 
@@ -609,9 +610,14 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       if (it.descanso) partes.push('descanso ' + it.descanso);
       return {
         id: it.id,
+        exercicioId: it.exercicioId,
         exercicioNome: ex?.nome ?? '(exercício removido da biblioteca)',
         grupoMuscular: ex?.grupoMuscular ?? '',
         resumo: partes.join(' · '),
+        series: it.series,
+        repeticoes: it.repeticoes,
+        carga: it.carga,
+        descanso: it.descanso,
         observacoes: it.observacoes,
       };
     };
@@ -1108,7 +1114,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           })
           .catch(reportError);
       },
-      fecharModal: () => patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null, editExercicioId: null, treinoDetalheId: null }),
+      fecharModal: () => patchUi({ modal: null, editAlunoId: null, editAcademiaId: null, editDespesaId: null, editExercicioId: null, treinoDetalheId: null, editTreinoId: null }),
       feriasValor: S.feriasValor,
       setFeriasValor: (v: string) => patchUi({ feriasValor: v.replace(/[^\d]/g, '') }),
       feriasPreview: a ? brl(Math.max(0, calcs.get(a.id)!.total - (parseInt(S.feriasValor || '0', 10) - calcs.get(a.id)!.ferias))) : '',
@@ -1389,11 +1395,24 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       treinoAtivo,
       treinosArquivados,
       modalTreinoForm: S.modal === 'treinoForm',
-      abrirMontarTreino: () => a && patchUi({ modal: 'treinoForm' }),
+      abrirMontarTreino: () => a && patchUi({ modal: 'treinoForm', editTreinoId: null }),
+      editandoTreino: treinosVm.find((t) => t.id === S.editTreinoId) ?? null,
+      abrirEditarTreino: (id: string) => a && patchUi({ modal: 'treinoForm', editTreinoId: id }),
       salvarNovoTreino: (payload: db.TreinoPayload) => {
         if (!a) return;
         if (!payload.dias.length || payload.dias.every((d) => d.itens.length === 0)) {
           showToast('Adiciona pelo menos um exercício no treino.');
+          return;
+        }
+        if (S.editTreinoId) {
+          const id = S.editTreinoId;
+          db.atualizarTreino(id, payload, effectiveOwnerId || undefined)
+            .then(() => {
+              recarregarTreinos();
+              patchUi({ modal: null, editTreinoId: null });
+              showToast('Treino atualizado.');
+            })
+            .catch(reportError);
           return;
         }
         db.salvarTreino(a.id, payload, effectiveOwnerId || undefined)

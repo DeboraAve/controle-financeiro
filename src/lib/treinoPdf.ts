@@ -2,7 +2,10 @@ import { jsPDF } from 'jspdf';
 
 export interface TreinoPdfItem {
   exercicioNome: string;
-  resumo: string;
+  series: number | null;
+  repeticoes: string;
+  carga: number | null;
+  descanso: string;
   observacoes: string;
 }
 
@@ -26,11 +29,30 @@ const TEXTO = [27, 19, 48] as const;
 const CINZA = [118, 110, 126] as const;
 const BORDA_CARTAO = [237, 200, 213] as const;
 
+// Larguras das colunas em fração da área útil — exercício ganha quase
+// metade, o resto se divide entre as 4 colunas de prescrição.
+const COLUNAS = [
+  { titulo: 'Exercício', frac: 0.36, align: 'left' as const },
+  { titulo: 'Séries', frac: 0.14, align: 'center' as const },
+  { titulo: 'Repetições', frac: 0.18, align: 'center' as const },
+  { titulo: 'Carga', frac: 0.16, align: 'center' as const },
+  { titulo: 'Descanso', frac: 0.16, align: 'center' as const },
+];
+
 export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 48;
+  const larguraTabela = pageW - margin * 2;
+  const colX: number[] = [];
+  {
+    let x = margin;
+    for (const c of COLUNAS) {
+      colX.push(x);
+      x += c.frac * larguraTabela;
+    }
+  }
   let y = 0;
 
   // Faixa de marca fina, repetida em toda página a partir da 2ª — mesma
@@ -65,67 +87,101 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   doc.text((d.nome || 'Treino') + ' · montado em ' + d.data, margin, 88);
   y = 142;
 
+  let ultimoDiaEmAndamento: TreinoPdfDia | null = null;
+
   const quebraSeNecessario = (altura: number) => {
     if (y + altura > pageH - 40) {
       doc.addPage();
       desenharCabecalhoContinuacao();
+      // Uma tabela que atravessa a quebra repete o cabeçalho de coluna na
+      // página seguinte — sem isso os números soltos numa página nova,
+      // sem "Séries/Repetições/Carga/Descanso" em cima, não dizem nada.
+      if (ultimoDiaEmAndamento) desenharCabecalhoTabela();
     }
   };
 
-  for (const dia of d.dias) {
-    // Calcula a altura do primeiro exercício pra quebrar junto com o
-    // título do dia — senão o título fica sozinho no rodapé de uma
-    // página enquanto o primeiro exercício pula pra próxima (mesmo bug
-    // achado e corrigido no PDF de avaliação).
+  const desenharCabecalhoTabela = () => {
+    doc.setFillColor(...PINK);
+    doc.rect(margin, y, larguraTabela, 22, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    const primeiro = dia.itens[0];
-    const alturaPrimeiroItem = primeiro
-      ? 34 + (primeiro.observacoes ? doc.splitTextToSize(primeiro.observacoes, pageW - margin * 2 - 24).length * 12 + 6 : 0) + 8
-      : 0;
-    quebraSeNecessario(34 + alturaPrimeiroItem);
+    COLUNAS.forEach((c, i) => {
+      const cx = c.align === 'left' ? colX[i] + 10 : colX[i] + (c.frac * larguraTabela) / 2;
+      doc.text(c.titulo.toUpperCase(), cx, y + 15, { align: c.align });
+    });
+    y += 22;
+  };
+
+  for (const dia of d.dias) {
+    // Só entra "em andamento" depois que a tabela já foi desenhada uma
+    // vez — antes disso uma quebra de página é só o título procurando
+    // espaço, não deve repetir cabeçalho de coluna nenhum ainda.
+    ultimoDiaEmAndamento = null;
+    quebraSeNecessario(30 + 22);
 
     doc.setTextColor(...PINK);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text((dia.nome || 'Treino').toUpperCase(), margin, y);
-    y += 8;
-    doc.setDrawColor(...PINK);
-    doc.setLineWidth(1.5);
-    doc.line(margin, y, margin + 30, y);
-    y += 18;
+    y += 10;
 
-    // Cada exercício vira um cartãozinho (fundo creme) em vez de nome +
-    // linha divisória — mesma linguagem visual do PDF de avaliação, em
-    // vez de uma parede de linhas horizontais repetidas por exercício.
-    for (const item of dia.itens) {
-      doc.setFontSize(9);
-      const linhasObs = item.observacoes ? doc.splitTextToSize(item.observacoes, pageW - margin * 2 - 24) : [];
-      const cardH = 34 + (linhasObs.length ? linhasObs.length * 12 + 6 : 0);
-      quebraSeNecessario(cardH + 8);
+    if (dia.itens.length === 0) {
+      doc.setTextColor(...CINZA);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text('Nenhum exercício nesse dia.', margin, y + 12);
+      y += 30;
+      continue;
+    }
 
-      doc.setFillColor(...CREME);
+    desenharCabecalhoTabela();
+    ultimoDiaEmAndamento = dia;
+
+    // Uma linha de tabela por exercício — série/repetição/carga/descanso
+    // em colunas alinhadas, em vez de texto solto por cartão. A
+    // observação (quando tem) entra como uma nota menor, em itálico, logo
+    // abaixo do nome, dentro da própria linha.
+    dia.itens.forEach((item, i) => {
+      doc.setFontSize(8);
+      const linhasObs = item.observacoes ? doc.splitTextToSize(item.observacoes, COLUNAS[0].frac * larguraTabela - 16) : [];
+      const rowH = 24 + (linhasObs.length ? linhasObs.length * 10 + 4 : 0);
+      quebraSeNecessario(rowH);
+
+      if (i % 2 === 1) {
+        doc.setFillColor(...CREME);
+        doc.rect(margin, y, larguraTabela, rowH, 'F');
+      }
       doc.setDrawColor(...BORDA_CARTAO);
-      doc.setLineWidth(0.75);
-      doc.roundedRect(margin, y, pageW - margin * 2, cardH, 6, 6, 'FD');
+      doc.setLineWidth(0.5);
+      doc.line(margin, y + rowH, margin + larguraTabela, y + rowH);
+
+      const valores = [
+        item.exercicioNome,
+        item.series != null ? String(item.series) : '—',
+        item.repeticoes || '—',
+        item.carga != null ? item.carga.toLocaleString('pt-BR') + ' kg' : '—',
+        item.descanso || '—',
+      ];
       doc.setTextColor(...TEXTO);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(item.exercicioNome, margin + 12, y + 21);
-      if (item.resumo) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(...CINZA);
-        doc.text(item.resumo, pageW - margin - 12, y + 21, { align: 'right' });
+      doc.setFontSize(10);
+      doc.text(valores[0], colX[0] + 10, y + 16);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...CINZA);
+      for (let c = 1; c < COLUNAS.length; c++) {
+        const cx = colX[c] + (COLUNAS[c].frac * larguraTabela) / 2;
+        doc.text(valores[c], cx, y + 16, { align: 'center' });
       }
       if (linhasObs.length) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
         doc.setTextColor(...CINZA);
-        doc.text(linhasObs, margin + 12, y + 37);
+        doc.text(linhasObs, colX[0] + 10, y + 29);
       }
-      y += cardH + 8;
-    }
-    y += 12;
+      y += rowH;
+    });
+    y += 20;
   }
 
   // Carimba rodapé + numeração em toda página, não só a última — um

@@ -417,6 +417,47 @@ export async function salvarTreino(alunoId: string, payload: TreinoPayload, owne
   return { id: treinoRow.id, alunoId: treinoRow.aluno_id, nome: treinoRow.nome, status: treinoRow.status, createdAt: treinoRow.created_at, dias };
 }
 
+// Atualiza um treino existente no lugar (nome + dias/itens) em vez de
+// arquivar e criar outro — os dias/itens antigos são substituídos porque
+// é uma estrutura aninhada (dia → itens); tentar comparar e atualizar
+// item a item seria bem mais código pra um ganho que não existe aqui,
+// já que o formulário sempre manda a lista completa de novo.
+export async function atualizarTreino(treinoId: string, payload: TreinoPayload, ownerId?: string): Promise<void> {
+  const { error: eNome } = await supabase.from('treinos').update({ nome: payload.nome }).eq('id', treinoId);
+  if (eNome) throw eNome;
+
+  const { error: eDelDias } = await supabase.from('treino_dias').delete().eq('treino_id', treinoId);
+  if (eDelDias) throw eDelDias;
+
+  for (let i = 0; i < payload.dias.length; i++) {
+    const diaPayload = payload.dias[i];
+    const { data: diaData, error: eDia } = await supabase
+      .from('treino_dias')
+      .insert({ treino_id: treinoId, nome: diaPayload.nome, ordem: i, ...(ownerId ? { user_id: ownerId } : {}) })
+      .select()
+      .single();
+    if (eDia) throw eDia;
+    const diaRow = diaData as TreinoDiaRow;
+
+    if (diaPayload.itens.length > 0) {
+      const { error: eItens } = await supabase.from('treino_itens').insert(
+        diaPayload.itens.map((it, j) => ({
+          treino_dia_id: diaRow.id,
+          exercicio_id: it.exercicioId,
+          ordem: j,
+          series: it.series,
+          repeticoes: it.repeticoes,
+          carga: it.carga,
+          descanso: it.descanso,
+          observacoes: it.observacoes,
+          ...(ownerId ? { user_id: ownerId } : {}),
+        })),
+      );
+      if (eItens) throw eItens;
+    }
+  }
+}
+
 export async function deleteTreinoRow(id: string): Promise<void> {
   const { error } = await supabase.from('treinos').delete().eq('id', id);
   if (error) throw error;
