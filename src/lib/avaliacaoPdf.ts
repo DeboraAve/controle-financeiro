@@ -52,6 +52,10 @@ const PINK = [209, 50, 104] as const;
 const CREME = [255, 247, 243] as const;
 const TEXTO = [27, 19, 48] as const;
 const CINZA = [118, 110, 126] as const;
+// Contorno sutil dos cartões — sem isso eles são só uma mancha de cor
+// chapada, sem nenhuma definição de borda (lia como "rascunho", não
+// como um componente desenhado de propósito).
+const BORDA_CARTAO = [237, 200, 213] as const;
 
 export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSecoes = AVALIACAO_PDF_SECOES_PADRAO, comparacao: AvaliacaoPdfComparacao | null = null): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -60,6 +64,22 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   const margin = 48;
   let y = 0;
 
+  // Faixa de marca fina, repetida em toda página a partir da 2ª — sem
+  // isso só a primeira página tinha qualquer identidade visual (o bloco
+  // grande do topo) e a 2ª começava do nada, sem nem uma cor, dando a
+  // impressão de duas páginas de documentos diferentes coladas juntas.
+  const desenharCabecalhoContinuacao = () => {
+    doc.setFillColor(...PINK);
+    doc.rect(0, 0, pageW, 34, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(d.alunoNome, margin, 22);
+    doc.setFontSize(8);
+    doc.text('I M P U L S A', pageW - margin, 22, { align: 'right' });
+    y = 34 + 26;
+  };
+
   // Sem isso um aluno com as 7 dobras + perimetria + comparação +
   // observações longas simplesmente escrevia por baixo do rodapé da
   // página — nada quebrava pra uma segunda página (só o treino tinha
@@ -67,13 +87,17 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   const quebraSeNecessario = (altura: number) => {
     if (y + altura > pageH - 40) {
       doc.addPage();
-      y = 48;
+      desenharCabecalhoContinuacao();
     }
   };
 
-  // header
+  // header — a faixa creme fininha por baixo do bloco rosa é só um
+  // acabamento (evita o corte seco reto direto pro branco da página,
+  // que lia como um retângulo qualquer jogado ali).
   doc.setFillColor(...PINK);
   doc.rect(0, 0, pageW, 110, 'F');
+  doc.setFillColor(...CREME);
+  doc.rect(0, 110, pageW, 4, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
@@ -87,7 +111,7 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.text(d.resumoLinha + ' · avaliação de ' + d.data, margin, 88);
-  y = 140;
+  y = 142;
 
   // A diferença de cada campo entra junto do próprio valor (ver
   // `linhaCampos`), igual a tela — em vez de uma seção "Comparado com"
@@ -146,7 +170,9 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
       const x = margin + col * (colW + gap);
       const cy = y + linha * (cardH + gap);
       doc.setFillColor(...CREME);
-      doc.roundedRect(x, cy, colW, cardH, 6, 6, 'F');
+      doc.setDrawColor(...BORDA_CARTAO);
+      doc.setLineWidth(0.75);
+      doc.roundedRect(x, cy, colW, cardH, 6, 6, 'FD');
       doc.setTextColor(...CINZA);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);

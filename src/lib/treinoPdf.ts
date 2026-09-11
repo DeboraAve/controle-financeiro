@@ -24,6 +24,7 @@ const PINK = [209, 50, 104] as const;
 const CREME = [255, 247, 243] as const;
 const TEXTO = [27, 19, 48] as const;
 const CINZA = [118, 110, 126] as const;
+const BORDA_CARTAO = [237, 200, 213] as const;
 
 export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -32,8 +33,25 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   const margin = 48;
   let y = 0;
 
+  // Faixa de marca fina, repetida em toda página a partir da 2ª — mesma
+  // correção do PDF de avaliação, senão só a 1ª página tem qualquer
+  // identidade visual e a 2ª começa do nada, sem cor nenhuma.
+  const desenharCabecalhoContinuacao = () => {
+    doc.setFillColor(...PINK);
+    doc.rect(0, 0, pageW, 34, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(d.alunoNome, margin, 22);
+    doc.setFontSize(8);
+    doc.text('I M P U L S A', pageW - margin, 22, { align: 'right' });
+    y = 34 + 26;
+  };
+
   doc.setFillColor(...PINK);
   doc.rect(0, 0, pageW, 110, 'F');
+  doc.setFillColor(...CREME);
+  doc.rect(0, 110, pageW, 4, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
@@ -45,12 +63,12 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.text((d.nome || 'Treino') + ' · montado em ' + d.data, margin, 88);
-  y = 140;
+  y = 142;
 
   const quebraSeNecessario = (altura: number) => {
     if (y + altura > pageH - 40) {
       doc.addPage();
-      y = 48;
+      desenharCabecalhoContinuacao();
     }
   };
 
@@ -86,7 +104,9 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
       quebraSeNecessario(cardH + 8);
 
       doc.setFillColor(...CREME);
-      doc.roundedRect(margin, y, pageW - margin * 2, cardH, 6, 6, 'F');
+      doc.setDrawColor(...BORDA_CARTAO);
+      doc.setLineWidth(0.75);
+      doc.roundedRect(margin, y, pageW - margin * 2, cardH, 6, 6, 'FD');
       doc.setTextColor(...TEXTO);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
