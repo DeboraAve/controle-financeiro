@@ -3,6 +3,7 @@ import { useApp, type AlunoFormPayload } from '../../state/AppContext';
 import { diaVencimentoDe } from '../../lib/calc';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
+import { StepDots } from '../ui/StepDots';
 import { IconeCarregando } from '../ui/icons';
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -34,10 +35,23 @@ export function AlunoFormModal() {
   const [fone, setFone] = useState('');
   const [desde, setDesde] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [passo, setPasso] = useState(0);
+
+  // Passo "Dias da semana" só existe pra cadastro novo de pacote — editar
+  // não mexe nos dias, e valor por aula não tem dias fixos.
+  const etapaDias = !editandoAluno && planoTipo === 'Pacote';
+  const totalPassos = etapaDias ? 3 : 2;
+
+  useEffect(() => {
+    // Se o tipo de cobrança mudou e o passo "dias" sumiu, não deixa o
+    // usuário preso num passo que não existe mais.
+    setPasso((p) => Math.min(p, totalPassos - 1));
+  }, [totalPassos]);
 
   useEffect(() => {
     if (!modalAlunoForm) return;
     setSalvando(false);
+    setPasso(0);
     if (editandoAluno) {
       setNome(editandoAluno.nome);
       setAcademiaId(editandoAluno.academiaId != null ? String(editandoAluno.academiaId) : '');
@@ -96,6 +110,8 @@ export function AlunoFormModal() {
     salvarAluno(payload).finally(() => setSalvando(false));
   };
 
+  const ultimoPasso = passo === totalPassos - 1;
+
   return (
     <Modal
       open={modalAlunoForm}
@@ -103,82 +119,110 @@ export function AlunoFormModal() {
       title={editandoAluno ? 'Editar aluno' : 'Novo aluno'}
       actions={
         <>
-          <Button variant="secondary" onClick={fecharModal} disabled={salvando}>Cancelar</Button>
-          <Button variant="primary" onClick={salvar} disabled={salvando}>
-            {salvando ? <IconeCarregando size={16} className="spin" aria-hidden /> : editandoAluno ? 'Salvar' : 'Cadastrar'}
+          <Button variant="secondary" onClick={passo === 0 ? fecharModal : () => setPasso((p) => p - 1)} disabled={salvando}>
+            {passo === 0 ? 'Cancelar' : 'Voltar'}
           </Button>
+          {ultimoPasso ? (
+            <Button variant="primary" onClick={salvar} disabled={salvando}>
+              {salvando ? <IconeCarregando size={16} className="spin" aria-hidden /> : editandoAluno ? 'Salvar' : 'Cadastrar'}
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={() => setPasso((p) => p + 1)} disabled={passo === 0 && !nome.trim()}>Continuar</Button>
+          )}
         </>
       }
     >
-      <div className="field">
-        <label>Nome</label>
-        <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Marina Duarte" />
-      </div>
+      <StepDots total={totalPassos} atual={passo} />
 
-      <div className="field">
-        <label>Academia</label>
-        <select className="input" value={academiaId} onChange={(e) => setAcademiaId(e.target.value)}>
-          <option value="">Sem academia / estúdio próprio</option>
-          {academiasOptions.map((ac) => (
-            <option key={ac.id} value={ac.id}>{ac.nome}</option>
-          ))}
-        </select>
-      </div>
-
-      {!editandoAluno && (
-        <div className="field">
-          <label>Tipo de cobrança</label>
-          <div className="seg" style={{ display: 'flex' }}>
-            {PLANO_TIPOS.map((t) => (
-              <label key={t} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
-                <input type="radio" name="planoTipo" checked={planoTipo === t} onChange={() => setPlanoTipo(t)} />
-                <span>{t}</span>
-              </label>
-            ))}
-          </div>
-          {planoTipo === 'Valor por aula' && (
-            <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
-              Sem pacote fixo — o aluno começa o mês sem nenhuma aula, e você confirma cada aula dada pelo detalhe dele. O total do mês é a contagem × o valor por aula.
-            </div>
-          )}
-        </div>
-      )}
-
-      {editandoAluno ? (
-        planoTipo === 'Valor por aula' ? (
-          <div className="field">
-            <label>Valor por aula (R$)</label>
-            <input className="input" value={valorAula} onChange={(e) => setValorAula(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <div className="field" style={{ flex: 1 }}>
-                <label>Valor do pacote (R$)</label>
-                <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
-              </div>
-              <div className="field" style={{ flex: 1 }}>
-                <label>Nº de aulas previstas</label>
-                <input className="input" value={aulasPrevistas} onChange={(e) => setAulasPrevistas(e.target.value.replace(/[^\d]/g, ''))} placeholder="8" />
-              </div>
-            </div>
-            <div className="field">
-              <label>Horário</label>
-              <input className="input" value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: Ter · Qui 07h" />
-            </div>
-          </>
-        )
-      ) : planoTipo === 'Valor por aula' ? (
-        <div className="field">
-          <label>Valor por aula (R$)</label>
-          <input className="input" value={valorAula} onChange={(e) => setValorAula(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
-        </div>
-      ) : (
+      {passo === 0 && (
         <>
           <div className="field">
-            <label>Valor do pacote (R$)</label>
-            <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+            <label>Nome</label>
+            <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Marina Duarte" />
           </div>
+
+          <div className="field">
+            <label>Academia</label>
+            <select className="input" value={academiaId} onChange={(e) => setAcademiaId(e.target.value)}>
+              <option value="">Sem academia / estúdio próprio</option>
+              {academiasOptions.map((ac) => (
+                <option key={ac.id} value={ac.id}>{ac.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Telefone</label>
+              <input className="input" value={fone} onChange={(e) => setFone(e.target.value)} placeholder="(11) 9 0000-0000" />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Aluno desde</label>
+              <input className="input" type="date" value={desde} max={hoje} onChange={(e) => setDesde(e.target.value)} />
+            </div>
+          </div>
+          {desdeEhAntigo && (
+            <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
+              Cadastro antigo, sem dia definido ({desde || 'em branco'}) — escolhe uma data pra esse aluno ganhar vencimento próprio, em vez do dia genérico da configuração geral.
+            </div>
+          )}
+        </>
+      )}
+
+      {passo === 1 && (
+        <>
+          {!editandoAluno && (
+            <div className="field">
+              <label>Tipo de cobrança</label>
+              <div className="seg" style={{ display: 'flex' }}>
+                {PLANO_TIPOS.map((t) => (
+                  <label key={t} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
+                    <input type="radio" name="planoTipo" checked={planoTipo === t} onChange={() => setPlanoTipo(t)} />
+                    <span>{t}</span>
+                  </label>
+                ))}
+              </div>
+              {planoTipo === 'Valor por aula' && (
+                <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
+                  Sem pacote fixo — o aluno começa o mês sem nenhuma aula, e você confirma cada aula dada pelo detalhe dele. O total do mês é a contagem × o valor por aula.
+                </div>
+              )}
+            </div>
+          )}
+
+          {planoTipo === 'Valor por aula' ? (
+            <div className="field">
+              <label>Valor por aula (R$)</label>
+              <input className="input" value={valorAula} onChange={(e) => setValorAula(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+            </div>
+          ) : editandoAluno ? (
+            <>
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <div className="field" style={{ flex: 1 }}>
+                  <label>Valor do pacote (R$)</label>
+                  <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+                </div>
+                <div className="field" style={{ flex: 1 }}>
+                  <label>Nº de aulas previstas</label>
+                  <input className="input" value={aulasPrevistas} onChange={(e) => setAulasPrevistas(e.target.value.replace(/[^\d]/g, ''))} placeholder="8" />
+                </div>
+              </div>
+              <div className="field">
+                <label>Horário</label>
+                <input className="input" value={horario} onChange={(e) => setHorario(e.target.value)} placeholder="Ex.: Ter · Qui 07h" />
+              </div>
+            </>
+          ) : (
+            <div className="field">
+              <label>Valor do pacote (R$)</label>
+              <input className="input" value={valorPacote} onChange={(e) => setValorPacote(e.target.value.replace(/[^\d]/g, ''))} placeholder="0" />
+            </div>
+          )}
+        </>
+      )}
+
+      {passo === 2 && etapaDias && (
+        <>
           <div className="field">
             <label>Dias da semana das aulas</label>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -216,22 +260,6 @@ export function AlunoFormModal() {
           )}
           <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{previaTexto}</div>
         </>
-      )}
-
-      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Telefone</label>
-          <input className="input" value={fone} onChange={(e) => setFone(e.target.value)} placeholder="(11) 9 0000-0000" />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Aluno desde</label>
-          <input className="input" type="date" value={desde} max={hoje} onChange={(e) => setDesde(e.target.value)} />
-        </div>
-      </div>
-      {desdeEhAntigo && (
-        <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>
-          Cadastro antigo, sem dia definido ({desde || 'em branco'}) — escolhe uma data pra esse aluno ganhar vencimento próprio, em vez do dia genérico da configuração geral.
-        </div>
       )}
     </Modal>
   );
