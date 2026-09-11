@@ -9,6 +9,7 @@ import { useAuth } from './AuthContext';
 import type { DomainState, UiState } from './types';
 import type { Tone } from '../components/ui/tone';
 import { IconeAgenda, IconeAlunos, IconeCaixa, IconeCobranca, IconePainel } from '../components/ui/icons';
+import { abrirWhatsApp } from '../lib/whatsapp';
 
 const initialUi: UiState = {
   tab: 'painel',
@@ -66,6 +67,7 @@ export interface AlunoListItem {
 export interface AlunoDetalheVm {
   id: string;
   nome: string;
+  fone: string;
   desde: string;
   tagClass: string;
   tagTexto: string;
@@ -150,14 +152,6 @@ export interface AvaliacaoFormPayload {
   perimAbdomen: number | null;
   perimQuadril: number | null;
   observacoes: string;
-}
-
-function abrirWhatsApp(fone: string, msg: string): boolean {
-  const digits = fone.replace(/\D/g, '');
-  if (!digits) return false;
-  const comDdi = digits.length <= 11 ? '55' + digits : digits;
-  window.open('https://wa.me/' + comDdi + '?text=' + encodeURIComponent(msg), '_blank');
-  return true;
 }
 
 function custoAcademiaCalc(ac: Academia, nAtivos: number, semanasPorMes: number) {
@@ -640,6 +634,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       aluno = {
         id: a.id,
         nome: a.nome,
+        fone: a.fone,
         desde: a.desde,
         ...tagDe(a),
         linhaBase: a.plano.startsWith('Pacote') ? 'Pacote ' + a.previstas + ' aulas' : a.plano + ' · ' + a.previstas + ' aulas',

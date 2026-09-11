@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { logoBase64 } from './pdfLogo';
 
 export interface TreinoPdfItem {
   exercicioNome: string;
@@ -39,7 +40,8 @@ const COLUNAS = [
   { titulo: 'Descanso', frac: 0.16, align: 'center' as const },
 ];
 
-export function gerarPdfTreino(d: TreinoPdfDados): Blob {
+export async function gerarPdfTreino(d: TreinoPdfDados): Promise<Blob> {
+  const logo = await logoBase64();
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -65,8 +67,7 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(d.alunoNome, margin, 22);
-    doc.setFontSize(8);
-    doc.text('I M P U L S A', pageW - margin, 22, { align: 'right' });
+    doc.addImage(logo, 'PNG', pageW - margin - 16, 9, 16, 16);
     y = 34 + 26;
   };
 
@@ -76,8 +77,7 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   doc.rect(0, 110, pageW, 4, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('I M P U L S A', pageW - margin, 30, { align: 'right' });
+  doc.addImage(logo, 'PNG', pageW - margin - 22, 18, 22, 22);
   doc.setFontSize(11);
   doc.text('TREINO', margin, 38);
   doc.setFontSize(22);

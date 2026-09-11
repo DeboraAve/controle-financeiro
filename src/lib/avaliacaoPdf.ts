@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import type { DeltaCampo } from './avaliacaoCalc';
+import { logoBase64 } from './pdfLogo';
 
 export interface AvaliacaoPdfCampo {
   label: string;
@@ -57,7 +58,8 @@ const CINZA = [118, 110, 126] as const;
 // como um componente desenhado de propósito).
 const BORDA_CARTAO = [237, 200, 213] as const;
 
-export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSecoes = AVALIACAO_PDF_SECOES_PADRAO, comparacao: AvaliacaoPdfComparacao | null = null): Blob {
+export async function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSecoes = AVALIACAO_PDF_SECOES_PADRAO, comparacao: AvaliacaoPdfComparacao | null = null): Promise<Blob> {
+  const logo = await logoBase64();
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -75,8 +77,7 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(d.alunoNome, margin, 22);
-    doc.setFontSize(8);
-    doc.text('I M P U L S A', pageW - margin, 22, { align: 'right' });
+    doc.addImage(logo, 'PNG', pageW - margin - 16, 9, 16, 16);
     y = 34 + 26;
   };
 
@@ -100,10 +101,11 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   doc.rect(0, 110, pageW, 4, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  // Espaça as letras à mão (jsPDF não tem letter-spacing) pra imitar o
-  // tom "wordmark" do app no canto do cabeçalho.
-  doc.text('I M P U L S A', pageW - margin, 30, { align: 'right' });
+  // Selo de verdade da marca em vez de "I M P U L S A" com espaço
+  // manual entre as letras — jsPDF não tem letter-spacing, então o texto
+  // era só uma imitação de logo; o ícone de verdade lê como marca de
+  // produto, não como texto datilografado tentando parecer uma.
+  doc.addImage(logo, 'PNG', pageW - margin - 22, 18, 22, 22);
   doc.setFontSize(11);
   doc.text('AVALIAÇÃO FÍSICA', margin, 38);
   doc.setFontSize(22);
