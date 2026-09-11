@@ -4,7 +4,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/impulsa/',
+  // Precisa bater com a URL real do GitHub Pages (github.io/<repo>/) — o
+  // repositório continua se chamando "controle-financeiro" mesmo depois
+  // do rebranding visual pra Impulsa, então é isso que vai na URL.
+  base: '/controle-financeiro/',
   plugins: [
     react(),
     VitePWA({
@@ -15,8 +18,8 @@ export default defineConfig({
         short_name: 'Impulsa',
         description: 'Seu negócio de personal, em ritmo — alunos, pacotes, agenda e caixa.',
         lang: 'pt-BR',
-        start_url: '/impulsa/',
-        scope: '/impulsa/',
+        start_url: '/controle-financeiro/',
+        scope: '/controle-financeiro/',
         display: 'standalone',
         background_color: '#FFF7F3',
         theme_color: '#FF3D7F',
