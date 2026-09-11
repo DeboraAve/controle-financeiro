@@ -22,6 +22,8 @@ const initialUi: UiState = {
   despDesc: '',
   cobrandoId: null,
   cobrandoFechamentoId: null,
+  cobrandoIncluiMesAtual: false,
+  cobrandoFechamentoIds: [],
   msg: '',
   toast: null,
   diaSel: null,
@@ -1070,6 +1072,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       modalFerias: S.modal === 'ferias',
       modalInativar: S.modal === 'inativar',
       modalCobranca: S.modal === 'cobranca',
+      modalMarcarTodosRecebidos: S.modal === 'marcarTodosRecebidos',
+      modalCobrarTodosConfirmar: S.modal === 'cobrarTodosConfirmar',
       modalAjustes: S.modal === 'ajustes',
       abrirAjustes: () => patchUi({ modal: 'ajustes' }),
       modalMinhaConta: S.modal === 'minhaConta',
@@ -1510,29 +1514,90 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           });
         }
 
+        // Mensagem "cobrar tudo" — junta os itens em aberto de um aluno
+        // (mês corrente + fechamentos antigos) numa única cobrança, em vez
+        // de uma mensagem por mês em atraso.
+        const montarMensagemTudo = (nome: string, itens: ItemCobranca[]) => {
+          const linhas = itens.map((it) => '- ' + it.detalhe + ': ' + it.valor).join('\n');
+          const total = brl(itens.reduce((t, it) => t + it.valorNum, 0));
+          return 'Oi, ' + nome.split(' ')[0] + '! Fechando as pendências:\n' + linhas + '\nTotal: ' + total + '. Consegue acertar? Chave Pix é meu celular!';
+        };
+        const idsFechamento = (itens: ItemCobranca[]) =>
+          itens.filter((it) => it.id.startsWith('fechamento-')).map((it) => it.id.slice('fechamento-'.length));
+        const incluiMesAtual = (itens: ItemCobranca[]) => itens.some((it) => !it.id.startsWith('fechamento-'));
+
         const totalGeral = [...itensPorAluno.values()].reduce((t, g) => t + g.itens.reduce((t2, it) => t2 + it.valorNum, 0), 0);
         const qtdItens = [...itensPorAluno.values()].reduce((t, g) => t + g.itens.length, 0);
+        const porAluno = [...itensPorAluno.entries()].map(([id, g]) => ({
+          id,
+          nome: g.nome,
+          totalFmt: brl(g.itens.reduce((t, it) => t + it.valorNum, 0)),
+          itens: g.itens,
+          cobrarTudo: () =>
+            patchUi({
+              modal: 'cobranca',
+              cobrandoId: id,
+              cobrandoFechamentoId: null,
+              cobrandoIncluiMesAtual: incluiMesAtual(g.itens),
+              cobrandoFechamentoIds: idsFechamento(g.itens),
+              msg: montarMensagemTudo(g.nome, g.itens),
+            }),
+        }));
         return {
           frase: qtdItens ? brl(totalGeral) + ' em aberto entre ' + itensPorAluno.size + ' aluno(s), ' + qtdItens + ' cobrança(s)' : 'Nada em aberto',
           vazio: itensPorAluno.size === 0,
-          porAluno: [...itensPorAluno.entries()].map(([id, g]) => ({
-            id,
-            nome: g.nome,
-            totalFmt: brl(g.itens.reduce((t, it) => t + it.valorNum, 0)),
-            itens: g.itens,
-          })),
+          porAluno,
+          marcarTodosRecebidos: () => {
+            for (const g of porAluno) for (const it of g.itens) it.baixar();
+            patchUi({ modal: null });
+            showToast('Tudo marcado como recebido.');
+          },
+          cobrarTodos: () => {
+            let enviados = 0;
+            for (const g of porAluno) {
+              const al = domainRaw.alunos.find((a) => a.id === g.id);
+              if (!al?.fone) continue;
+              if (!abrirWhatsApp(al.fone, montarMensagemTudo(g.nome, g.itens))) continue;
+              enviados++;
+              if (incluiMesAtual(g.itens)) {
+                patchAlunoLocal(g.id, (x) => ({ ...x, pag: 'cobrado' }));
+                db.setAlunoPag(g.id, 'cobrado').catch(reportError);
+              }
+              const fids = idsFechamento(g.itens);
+              if (fids.length) {
+                const fidSet = new Set(fids);
+                setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (fidSet.has(x.id) ? { ...x, status: 'cobrado' } : x)) }));
+                for (const fid of fids) db.updateFechamentoStatus(fid, 'cobrado').catch(reportError);
+              }
+            }
+            patchUi({ modal: null });
+            showToast(enviados ? 'WhatsApp aberto pra ' + enviados + ' aluno(s).' : 'Ninguém com telefone cadastrado pra cobrar.');
+          },
         };
       })(),
       cobrando,
       msg: S.msg,
       setMsg: (v: string) => patchUi({ msg: v }),
+      abrirConfirmarMarcarTodosRecebidos: () => patchUi({ modal: 'marcarTodosRecebidos' }),
+      abrirConfirmarCobrarTodos: () => patchUi({ modal: 'cobrarTodosConfirmar' }),
       enviarCobranca: () => {
         if (S.cobrandoId == null) return;
         if (!abrirWhatsApp(cobrando.fone, S.msg)) {
           showToast('Cadastra o telefone de ' + cobrando.nome.split(' ')[0] + ' pra poder cobrar por WhatsApp.');
           return;
         }
-        if (S.cobrandoFechamentoId) {
+        if (S.cobrandoIncluiMesAtual || S.cobrandoFechamentoIds.length) {
+          if (S.cobrandoIncluiMesAtual) {
+            const id = S.cobrandoId;
+            patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
+            db.setAlunoPag(id, 'cobrado').catch(reportError);
+          }
+          if (S.cobrandoFechamentoIds.length) {
+            const fidSet = new Set(S.cobrandoFechamentoIds);
+            setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (fidSet.has(x.id) ? { ...x, status: 'cobrado' } : x)) }));
+            for (const fid of S.cobrandoFechamentoIds) db.updateFechamentoStatus(fid, 'cobrado').catch(reportError);
+          }
+        } else if (S.cobrandoFechamentoId) {
           const fid = S.cobrandoFechamentoId;
           setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (x.id === fid ? { ...x, status: 'cobrado' } : x)) }));
           db.updateFechamentoStatus(fid, 'cobrado').catch(reportError);
@@ -1541,7 +1606,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
           db.setAlunoPag(id, 'cobrado').catch(reportError);
         }
-        patchUi({ modal: null, cobrandoFechamentoId: null });
+        patchUi({ modal: null, cobrandoFechamentoId: null, cobrandoFechamentoIds: [], cobrandoIncluiMesAtual: false });
         showToast('WhatsApp aberto pra ' + cobrando.nome.split(' ')[0] + '.');
       },
       toast: S.toast,

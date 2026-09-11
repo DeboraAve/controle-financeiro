@@ -74,4 +74,6 @@ export type Modal =
   | 'treinoForm'
   | 'treinoDetalhe'
   | 'minhaConta'
+  | 'marcarTodosRecebidos'
+  | 'cobrarTodosConfirmar'
   | null;

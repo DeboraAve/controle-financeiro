@@ -23,6 +23,11 @@ export interface UiState {
   despDesc: string;
   cobrandoId: string | null;
   cobrandoFechamentoId: string | null;
+  // "Cobrar tudo" de um aluno — junta o mês corrente (se houver) com todos
+  // os fechamentos em aberto dele numa mensagem e marca todos como
+  // cobrado de uma vez, em vez de precisar abrir um por um.
+  cobrandoIncluiMesAtual: boolean;
+  cobrandoFechamentoIds: string[];
   msg: string;
   toast: { msg: string; tone: Tone } | null;
   diaSel: number | null;

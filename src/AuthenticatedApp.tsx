@@ -14,6 +14,8 @@ import { Toast } from './components/Toast';
 import { FeriasModal } from './components/modals/FeriasModal';
 import { InativarModal } from './components/modals/InativarModal';
 import { CobrancaModal } from './components/modals/CobrancaModal';
+import { MarcarTodosRecebidosModal } from './components/modals/MarcarTodosRecebidosModal';
+import { CobrarTodosModal } from './components/modals/CobrarTodosModal';
 import { AjustesModal } from './components/modals/AjustesModal';
 import { AlunoFormModal } from './components/modals/AlunoFormModal';
 import { AlunoExcluirModal } from './components/modals/AlunoExcluirModal';
@@ -115,6 +117,8 @@ function Shell() {
       <FeriasModal />
       <InativarModal />
       <CobrancaModal />
+      <MarcarTodosRecebidosModal />
+      <CobrarTodosModal />
       <AjustesModal />
       <AlunoFormModal />
       <AlunoExcluirModal />

@@ -2,7 +2,7 @@ import { useApp } from '../state/AppContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 export function Cobranca() {
-  const { cobranca } = useApp();
+  const { cobranca, mesAtualNome, abrirConfirmarMarcarTodosRecebidos, abrirConfirmarCobrarTodos } = useApp();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -10,27 +10,37 @@ export function Cobranca() {
         <h2 style={{ fontSize: 29, margin: 0 }}>Cobrança</h2>
         <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{cobranca.frase}</div>
       </div>
+
+      {!cobranca.vazio && (
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={abrirConfirmarMarcarTodosRecebidos}>Marcar tudo recebido</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={abrirConfirmarCobrarTodos}>Cobrar todos</button>
+        </div>
+      )}
+
       {cobranca.porAluno.map((al) => (
         <BlueprintCard key={al.id} style={{ gap: 'var(--space-2)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <div style={{ fontSize: 16, fontFamily: 'var(--font-heading)' }}>{al.nome}</div>
             {al.itens.length > 1 && <div style={{ fontFamily: 'var(--font-heading)', fontSize: 16 }}>{al.totalFmt}</div>}
           </div>
-          {al.itens.map((c) => (
-            <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: al.itens.length > 1 ? '1px solid var(--color-divider)' : undefined, paddingTop: al.itens.length > 1 ? 8 : 0, borderLeft: `3px solid ${c.borda}`, paddingLeft: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>{c.detalhe}</div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--font-heading)', fontSize: al.itens.length > 1 ? 14 : 20 }}>{c.valor}</div>
-                  <span className={c.tagClass}>{c.tagTexto}</span>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {al.itens.map((c) => (
+              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13 }}>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ color: 'var(--color-neutral-700)' }}>{c.id.startsWith('fechamento-') ? c.tagTexto : mesAtualNome}</span>
+                  {!c.id.startsWith('fechamento-') && <span className={c.tagClass} style={{ fontSize: 9 }}>{c.tagTexto}</span>}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-heading)' }}>{c.valor}</span>
+                  <button className="btn btn-ghost" style={{ padding: 0, fontSize: 11 }} onClick={c.baixar}>recebi</button>
+                </span>
               </div>
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={c.cobrar}>{c.botao}</button>
-                <button className="btn btn-secondary" onClick={c.baixar}>Recebi</button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          <button className="btn btn-primary" onClick={al.itens.length > 1 ? al.cobrarTudo : al.itens[0].cobrar}>
+            {al.itens.length > 1 ? 'Cobrar tudo (' + al.totalFmt + ')' : al.itens[0].botao}
+          </button>
         </BlueprintCard>
       ))}
       {cobranca.vazio && (
