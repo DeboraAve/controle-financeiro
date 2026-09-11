@@ -63,6 +63,7 @@ interface FechamentoRow {
   canceladas: number;
   extras: number;
   ferias_valor: number;
+  status: PagStatus;
 }
 
 export interface Fechamento {
@@ -74,10 +75,11 @@ export interface Fechamento {
   canceladas: number;
   extras: number;
   feriasValor: number;
+  status: PagStatus;
 }
 
 function fechamentoFromRow(r: FechamentoRow): Fechamento {
-  return { id: r.id, alunoId: r.aluno_id, mes: r.mes, base: r.base, total: r.total, canceladas: r.canceladas, extras: r.extras, feriasValor: r.ferias_valor };
+  return { id: r.id, alunoId: r.aluno_id, mes: r.mes, base: r.base, total: r.total, canceladas: r.canceladas, extras: r.extras, feriasValor: r.ferias_valor, status: r.status };
 }
 
 function academiaFromRow(r: AcademiaRow): Academia {
@@ -564,11 +566,15 @@ export interface FechamentoInsertPayload {
   canceladas: number;
   extras: number;
   feriasValor: number;
+  status: PagStatus;
 }
 
 // Registra o fechamento real de cada aluno ativo (upsert — reabrir "Fechar o
-// mês" no mesmo mês atualiza em vez de duplicar) e então reseta os ajustes
-// deles, igual limparAjustesRemote faz por aluno, só que em lote.
+// mês" no mesmo mês atualiza em vez de duplicar), com o status de pagamento
+// que o aluno tinha até esse momento (`status`, no payload — pago fica
+// registrado como pago pra sempre). Em seguida reseta os ajustes E o status
+// de pagamento do aluno — ele passa a valer só pro mês novo que começa,
+// sem herdar "pago" do mês que acabou de fechar.
 export async function fecharMesRemote(rows: FechamentoInsertPayload[], alunoIds: string[], ownerId?: string): Promise<Fechamento[]> {
   const { data, error } = await supabase
     .from('fechamentos')
@@ -581,6 +587,7 @@ export async function fecharMesRemote(rows: FechamentoInsertPayload[], alunoIds:
         canceladas: r.canceladas,
         extras: r.extras,
         ferias_valor: r.feriasValor,
+        status: r.status,
         ...(ownerId ? { user_id: ownerId } : {}),
       })),
       { onConflict: 'aluno_id,mes' },
@@ -589,7 +596,7 @@ export async function fecharMesRemote(rows: FechamentoInsertPayload[], alunoIds:
   if (error) throw error;
 
   const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
-    supabase.from('alunos').update({ ferias: 0 }).in('id', alunoIds),
+    supabase.from('alunos').update({ ferias: 0, pag: 'aberto', atraso: null }).in('id', alunoIds),
     supabase.from('sessoes').delete().in('aluno_id', alunoIds).eq('status', 'extra'),
     supabase.from('sessoes').update({ status: 'feita' }).in('aluno_id', alunoIds).eq('status', 'cancelada'),
   ]);
@@ -598,6 +605,11 @@ export async function fecharMesRemote(rows: FechamentoInsertPayload[], alunoIds:
   if (e3) throw e3;
 
   return ((data ?? []) as FechamentoRow[]).map(fechamentoFromRow);
+}
+
+export async function updateFechamentoStatus(id: string, status: PagStatus): Promise<void> {
+  const { error } = await supabase.from('fechamentos').update({ status }).eq('id', id);
+  if (error) throw error;
 }
 
 // ---- despesas ----

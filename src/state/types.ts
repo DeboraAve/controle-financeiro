@@ -22,6 +22,7 @@ export interface UiState {
   despValor: string;
   despDesc: string;
   cobrandoId: string | null;
+  cobrandoFechamentoId: string | null;
   msg: string;
   toast: { msg: string; tone: Tone } | null;
   diaSel: number | null;

@@ -21,6 +21,7 @@ const initialUi: UiState = {
   despValor: '',
   despDesc: '',
   cobrandoId: null,
+  cobrandoFechamentoId: null,
   msg: '',
   toast: null,
   diaSel: null,
@@ -679,6 +680,10 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     }
 
     const cobraveis = domain.alunos.filter((x) => x.status !== 'inativo' && x.pag !== 'pago');
+    // Mês já fechado que ainda não foi pago — dívida separada do mês
+    // corrente (que vive em `aluno.pag`). Um aluno pode aparecer aqui e em
+    // `cobraveis` ao mesmo tempo: são cobranças de meses diferentes.
+    const fechamentosCobraveis = fechamentosDoOwner.filter((f) => f.status !== 'pago');
     const cobrando = domain.alunos.find((x) => x.id === S.cobrandoId) || { nome: '', fone: '' };
 
     const diasComAula: Record<number, number> = {};
@@ -1067,7 +1072,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         const mes = mesAtualStr;
         const rows: db.FechamentoInsertPayload[] = ativos.map((al) => {
           const c = calcs.get(al.id)!;
-          return { alunoId: al.id, mes, base: al.base, total: c.total, canceladas: c.canceladas, extras: c.extras, feriasValor: c.ferias };
+          return { alunoId: al.id, mes, base: al.base, total: c.total, canceladas: c.canceladas, extras: c.extras, feriasValor: c.ferias, status: al.pag };
         });
         const ids = ativos.map((al) => al.id);
         db.fecharMesRemote(rows, ids, effectiveOwnerId)
@@ -1076,7 +1081,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
               ...s,
               alunos: s.alunos.map((al) =>
                 ids.includes(al.id)
-                  ? { ...al, ferias: 0, sessoes: al.sessoes.filter((sx) => sx.s !== 'extra').map((sx) => ({ ...sx, s: sx.s === 'cancelada' ? 'feita' : sx.s })) }
+                  ? { ...al, ferias: 0, pag: 'aberto', atraso: undefined, sessoes: al.sessoes.filter((sx) => sx.s !== 'extra').map((sx) => ({ ...sx, s: sx.s === 'cancelada' ? 'feita' : sx.s })) }
                   : al,
               ),
               fechamentos: [...s.fechamentos.filter((f) => !(f.mes === mes && ids.includes(f.alunoId))), ...novos],
@@ -1367,50 +1372,90 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         showToast('Despesa excluída.');
       },
       cobranca: {
-        frase: cobraveis.length ? brl(aberto + atrasado) + ' em aberto entre ' + cobraveis.length + ' alunos' : 'Nada em aberto',
-        vazio: cobraveis.length === 0,
-        lista: cobraveis.map((x) => {
-          const c = calcs.get(x.id)!;
-          const atrasadoX = x.pag === 'atrasado';
-          return {
-            id: x.id,
-            nome: x.nome,
-            valor: brl(c.total),
-            detalhe: x.plano + ' · ' + (c.canceladas ? c.canceladas + ' cancelada(s) já descontada(s)' : 'pacote cheio'),
-            borda: atrasadoX ? 'var(--color-accent)' : 'var(--color-divider)',
-            tagClass: 'tag ' + (atrasadoX ? 'tag-accent' : x.pag === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
-            tagTexto: atrasadoX ? (x.atraso || 5) + ' dias' : x.pag === 'cobrado' ? 'cobrado hoje' : 'vence dia ' + diaVencimentoTexto(x),
-            botao: x.pag === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
-            cobrar: () =>
-              patchUi({
-                modal: 'cobranca',
-                cobrandoId: x.id,
-                msg:
-                  'Oi, ' + x.nome.split(' ')[0] + '! Fechei ' + mesAtualNome + ' em ' + brl(c.total) +
-                  (c.canceladas ? ' (já com o desconto de ' + c.canceladas + ' aula(s) que não rolaram)' : '') +
-                  '. Consegue acertar hoje? Chave Pix é meu celular. Bora manter o ritmo!',
-              }),
-            baixar: () => {
-              patchAlunoLocal(x.id, (y) => ({ ...y, pag: 'pago' }));
-              db.setAlunoPag(x.id, 'pago').catch(reportError);
-              showToast(x.nome + ' pago. Boa!');
-            },
-          };
-        }),
+        frase: (cobraveis.length + fechamentosCobraveis.length)
+          ? brl(aberto + atrasado + fechamentosCobraveis.reduce((t, f) => t + f.total, 0)) + ' em aberto entre ' + (cobraveis.length + fechamentosCobraveis.length) + ' cobrança(s)'
+          : 'Nada em aberto',
+        vazio: cobraveis.length === 0 && fechamentosCobraveis.length === 0,
+        lista: [
+          ...cobraveis.map((x) => {
+            const c = calcs.get(x.id)!;
+            const atrasadoX = x.pag === 'atrasado';
+            return {
+              id: x.id,
+              nome: x.nome,
+              valor: brl(c.total),
+              detalhe: x.plano + ' · ' + (c.canceladas ? c.canceladas + ' cancelada(s) já descontada(s)' : 'pacote cheio'),
+              borda: atrasadoX ? 'var(--color-accent)' : 'var(--color-divider)',
+              tagClass: 'tag ' + (atrasadoX ? 'tag-accent' : x.pag === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
+              tagTexto: atrasadoX ? (x.atraso || 5) + ' dias' : x.pag === 'cobrado' ? 'cobrado hoje' : 'vence dia ' + diaVencimentoTexto(x),
+              botao: x.pag === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
+              cobrar: () =>
+                patchUi({
+                  modal: 'cobranca',
+                  cobrandoId: x.id,
+                  cobrandoFechamentoId: null,
+                  msg:
+                    'Oi, ' + x.nome.split(' ')[0] + '! Fechei ' + mesAtualNome + ' em ' + brl(c.total) +
+                    (c.canceladas ? ' (já com o desconto de ' + c.canceladas + ' aula(s) que não rolaram)' : '') +
+                    '. Consegue acertar hoje? Chave Pix é meu celular. Bora manter o ritmo!',
+                }),
+              baixar: () => {
+                patchAlunoLocal(x.id, (y) => ({ ...y, pag: 'pago' }));
+                db.setAlunoPag(x.id, 'pago').catch(reportError);
+                showToast(x.nome + ' pago. Boa!');
+              },
+            };
+          }),
+          ...fechamentosCobraveis.map((f) => {
+            const al = domainRaw.alunos.find((a) => a.id === f.alunoId);
+            const nome = al?.nome ?? '(aluno removido)';
+            const nomeMesF = nomeMesLongo(f.mes);
+            const atrasadoF = f.status === 'atrasado';
+            return {
+              id: 'fechamento-' + f.id,
+              nome,
+              valor: brl(f.total),
+              detalhe: 'fechamento de ' + nomeMesF,
+              borda: atrasadoF ? 'var(--color-accent)' : 'var(--color-divider)',
+              tagClass: 'tag ' + (atrasadoF ? 'tag-accent' : f.status === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
+              tagTexto: nomeMesF,
+              botao: f.status === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
+              cobrar: () =>
+                al &&
+                patchUi({
+                  modal: 'cobranca',
+                  cobrandoId: al.id,
+                  cobrandoFechamentoId: f.id,
+                  msg: 'Oi, ' + nome.split(' ')[0] + '! Ainda ficou pendente o fechamento de ' + nomeMesF + ', ' + brl(f.total) + '. Consegue acertar? Chave Pix é meu celular!',
+                }),
+              baixar: () => {
+                setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (x.id === f.id ? { ...x, status: 'pago' } : x)) }));
+                db.updateFechamentoStatus(f.id, 'pago').catch(reportError);
+                showToast(nome + ' pago (' + nomeMesF + '). Boa!');
+              },
+            };
+          }),
+        ],
       },
       cobrando,
       msg: S.msg,
       setMsg: (v: string) => patchUi({ msg: v }),
       enviarCobranca: () => {
         if (S.cobrandoId == null) return;
-        const id = S.cobrandoId;
         if (!abrirWhatsApp(cobrando.fone, S.msg)) {
           showToast('Cadastra o telefone de ' + cobrando.nome.split(' ')[0] + ' pra poder cobrar por WhatsApp.');
           return;
         }
-        patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
-        db.setAlunoPag(id, 'cobrado').catch(reportError);
-        patchUi({ modal: null });
+        if (S.cobrandoFechamentoId) {
+          const fid = S.cobrandoFechamentoId;
+          setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (x.id === fid ? { ...x, status: 'cobrado' } : x)) }));
+          db.updateFechamentoStatus(fid, 'cobrado').catch(reportError);
+        } else {
+          const id = S.cobrandoId;
+          patchAlunoLocal(id, (x) => ({ ...x, pag: 'cobrado' }));
+          db.setAlunoPag(id, 'cobrado').catch(reportError);
+        }
+        patchUi({ modal: null, cobrandoFechamentoId: null });
         showToast('WhatsApp aberto pra ' + cobrando.nome.split(' ')[0] + '.');
       },
       toast: S.toast,
