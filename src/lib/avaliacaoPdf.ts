@@ -56,8 +56,20 @@ const CINZA = [118, 110, 126] as const;
 export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSecoes = AVALIACAO_PDF_SECOES_PADRAO, comparacao: AvaliacaoPdfComparacao | null = null): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   const margin = 48;
   let y = 0;
+
+  // Sem isso um aluno com as 7 dobras + perimetria + comparação +
+  // observações longas simplesmente escrevia por baixo do rodapé da
+  // página — nada quebrava pra uma segunda página (só o treino tinha
+  // esse cuidado, a avaliação nunca teve).
+  const quebraSeNecessario = (altura: number) => {
+    if (y + altura > pageH - 40) {
+      doc.addPage();
+      y = 48;
+    }
+  };
 
   // header
   doc.setFillColor(...PINK);
@@ -73,7 +85,21 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   doc.text(d.resumoLinha + ' · avaliação de ' + d.data, margin, 88);
   y = 140;
 
+  // A diferença de cada campo entra junto do próprio valor (ver
+  // `linhaCampos`), igual a tela — em vez de uma seção "Comparado com"
+  // à parte repetindo os mesmos campos lá embaixo.
+  const deltaPorLabel = new Map<string, DeltaCampo>();
+  if (secoes.comparacao && comparacao) {
+    for (const it of comparacao.itens) deltaPorLabel.set(it.label, it);
+    doc.setTextColor(...PINK);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Comparado com a avaliação de ' + comparacao.data, margin, y);
+    y += 20;
+  }
+
   const secao = (titulo: string) => {
+    quebraSeNecessario(30);
     doc.setTextColor(...PINK);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
@@ -82,26 +108,47 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
     doc.setDrawColor(...PINK);
     doc.setLineWidth(1);
     doc.line(margin, y, pageW - margin, y);
-    y += 18;
+    y += 22;
   };
 
+  // Cada campo vira um cartãozinho (fundo creme, cantos arredondados) em
+  // vez de texto solto — era o que fazia a página parecer crua/rascunho.
   const linhaCampos = (campos: AvaliacaoPdfCampo[], porLinha = 3) => {
-    const colW = (pageW - margin * 2) / porLinha;
+    const gap = 8;
+    const colW = (pageW - margin * 2 - gap * (porLinha - 1)) / porLinha;
+    const linhas = Math.ceil(campos.length / porLinha);
+    // Cartão cresce um pouco quando existe delta pra caber a linha extra,
+    // pequena e em rosa, sem espremer no mesmo renglão do valor — em
+    // colunas estreitas (dobras/perimetria, 4 por linha) um valor tipo
+    // "60 cm (-31.0)" não cabe junto sem risco de cortar.
+    const cardH = deltaPorLabel.size ? 56 : 46;
+    quebraSeNecessario(linhas * (cardH + gap));
     doc.setFontSize(9);
     campos.forEach((c, i) => {
       const col = i % porLinha;
-      if (col === 0 && i > 0) y += 34;
-      const x = margin + col * colW;
+      const linha = Math.floor(i / porLinha);
+      const x = margin + col * (colW + gap);
+      const cy = y + linha * (cardH + gap);
+      doc.setFillColor(...CREME);
+      doc.roundedRect(x, cy, colW, cardH, 6, 6, 'F');
       doc.setTextColor(...CINZA);
       doc.setFont('helvetica', 'normal');
-      doc.text(c.label.toUpperCase(), x, y);
+      doc.setFontSize(8);
+      doc.text(c.label.toUpperCase(), x + 10, cy + 17);
       doc.setTextColor(...TEXTO);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
-      doc.text(c.valor, x, y + 17);
+      doc.text(c.valor, x + 10, cy + 35);
+      const dt = deltaPorLabel.get(c.label);
+      if (dt) {
+        doc.setTextColor(...PINK);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text((dt.delta >= 0 ? '+' : '') + dt.delta.toFixed(1) + (dt.unidade ? ' ' + dt.unidade : ''), x + 10, cy + 48);
+      }
       doc.setFontSize(9);
     });
-    y += 40;
+    y += linhas * (cardH + gap) + 10;
   };
 
   if (secoes.gerais) {
@@ -132,21 +179,13 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
     linhaCampos(d.perimetria, 4);
   }
 
-  if (secoes.comparacao && comparacao && comparacao.itens.length) {
-    secao('Comparado com ' + comparacao.data);
-    const campos: AvaliacaoPdfCampo[] = comparacao.itens.map((it) => ({
-      label: it.label,
-      valor: (it.delta >= 0 ? '+' : '') + it.delta.toFixed(1) + (it.unidade ? ' ' + it.unidade : ''),
-    }));
-    linhaCampos(campos, 4);
-  }
-
   if (secoes.observacoes && d.observacoes.trim()) {
     secao('Observações');
     doc.setTextColor(...TEXTO);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     const linhas = doc.splitTextToSize(d.observacoes, pageW - margin * 2);
+    quebraSeNecessario(linhas.length * 14 + 10);
     doc.text(linhas, margin, y);
     y += linhas.length * 14 + 10;
   }
