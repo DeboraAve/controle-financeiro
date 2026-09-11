@@ -1,16 +1,19 @@
 import { useApp } from '../state/AppContext';
+import { useSetPageHeader } from '../state/PageHeaderContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 export function Cobranca() {
   const { cobranca, mesAtualNome, abrirConfirmarMarcarTodosRecebidos, abrirConfirmarCobrarTodos } = useApp();
 
+  useSetPageHeader(
+    <div>
+      <h2 style={{ fontSize: 29, margin: 0 }}>Cobrança</h2>
+      <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{cobranca.frase}</div>
+    </div>,
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div>
-        <h2 style={{ fontSize: 29, margin: 0 }}>Cobrança</h2>
-        <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{cobranca.frase}</div>
-      </div>
-
       {!cobranca.vazio && (
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button className="btn btn-secondary" style={{ flex: 1 }} onClick={abrirConfirmarMarcarTodosRecebidos}>Marcar tudo recebido</button>

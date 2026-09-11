@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useApp } from '../../state/AppContext';
 import { compararAvaliacoes, type DeltaCampo } from '../../lib/avaliacaoCalc';
 import type { AvaliacaoPdfSecoes } from '../../lib/avaliacaoPdf';
-import { abrirWhatsApp } from '../../lib/whatsapp';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 import { StepDots } from '../ui/StepDots';
@@ -30,7 +29,7 @@ const SECOES_LABELS: { key: keyof AvaliacaoPdfSecoes; label: string }[] = [
 ];
 
 export function AvaliacaoDetalheModal() {
-  const { modalAvaliacaoDetalhe, avaliacaoDetalheAtual, avaliacoes, aluno, fecharModal } = useApp();
+  const { modalAvaliacaoDetalhe, avaliacaoDetalheAtual, avaliacoes, fecharModal } = useApp();
   const av = avaliacaoDetalheAtual;
 
   const [compararComIds, setCompararComIds] = useState<Set<string>>(new Set());
@@ -87,14 +86,6 @@ export function AvaliacaoDetalheModal() {
     const blob = await gerarPdfAvaliacao(av.pdfDados, secoes, comparacaoPdf);
     const nomeArquivo = nomeArquivoDe(av);
     const file = new File([blob], nomeArquivo, { type: 'application/pdf' });
-    // O wa.me só abre o WhatsApp com texto pré-pronto — não existe jeito de
-    // mandar um arquivo já anexado direto pro número (ver lib/whatsapp.ts).
-    // Abre a conversa certa com um aviso curto, e ainda assim entrega o
-    // PDF pelo share sheet — falta só anexar na conversa que já abriu, em
-    // vez de precisar procurar o contato do zero.
-    if (aluno?.fone) {
-      abrirWhatsApp(aluno.fone, 'Oi, ' + aluno.nome.split(' ')[0] + '! Segue sua avaliação física em anexo.');
-    }
     const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
     if (nav.canShare && nav.canShare({ files: [file] })) {
       try {

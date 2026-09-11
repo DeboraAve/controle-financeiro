@@ -1,4 +1,5 @@
 import { useApp } from '../state/AppContext';
+import { useSetPageHeader } from '../state/PageHeaderContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 
@@ -8,10 +9,11 @@ export function Caixa() {
     academiasResumo, abrirAcademias, recarregar, mesAtualNomeCap,
   } = useApp();
 
+  useSetPageHeader(<h2 style={{ fontSize: 29, margin: 0 }}>Caixa</h2>);
+
   return (
     <PullToRefresh onRefresh={recarregar}>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <h2 style={{ fontSize: 29, margin: 0 }}>Caixa</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 'var(--space-2)' }}>
         <div className="card" style={{ gap: 2, padding: 'var(--space-3) var(--space-2)' }}>
           <div className="stat-label">Entradas</div>

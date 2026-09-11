@@ -13,7 +13,7 @@ export function Alunos() {
 
   return (
     <PullToRefresh onRefresh={recarregar}>
-    <Stack gap={3}>
+    <Stack gap={3} style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
       <Stack direction="row" justify="space-between" align="baseline">
         <h2 style={{ fontSize: 'var(--text-2xl)', margin: 0 }}>Alunos</h2>
         <Button variant="ghost" style={{ padding: 0 }} onClick={abrirAcademias}>

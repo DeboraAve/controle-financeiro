@@ -82,13 +82,24 @@ a:hover {
   max-width: 640px;
   margin: 0 auto;
   box-sizing: border-box;
-  padding: 24px 18px 100px;
-  /* iOS/Android com notch, instalado standalone (status bar sobrepõe o
-     conteúdo — ver apple-mobile-web-app-status-bar-style no index.html):
-     só cresce o respiro do topo se o recorte for maior que o padding
-     que já existe, não soma os dois. */
-  padding-top: max(24px, env(safe-area-inset-top, 0px));
+  padding: 12px 18px 100px;
   view-transition-name: app-content;
+}
+
+/* Título + ações fixos no topo da tela (ver PageHeaderContext) — em vez
+   de nascer dentro do conteúdo que rola, esse bloco gruda no topo do
+   scroll assim que a rolagem chega nele. Cada tela cuida do próprio
+   respiro pro notch (`.app-content` acima não tem mais isso sozinho) —
+   telas que ainda não usam cabeçalho fixo (Alunos/detalhe do aluno,
+   por terem duas telas montadas juntas no mestre-detalhe do desktop)
+   cuidam disso no próprio primeiro elemento. */
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--color-bg);
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-bottom: 10px;
 }
 
 /* — transição de tela (View Transitions API) —
@@ -111,6 +122,26 @@ a:hover {
 }
 @keyframes app-content-in {
   from { opacity: 0; transform: translateX(10px); }
+}
+
+/* — máscara do topo (notch/status bar) —
+   O rodapé já fica protegido porque a tabbar é `position: fixed` — nada
+   escapa por baixo dela não importa o que a rolagem faça. O topo não
+   tinha nada parecido: o conteúdo só tinha um *padding* pra não nascer
+   embaixo do notch, mas durante um bounce/gesto de rolagem ele ainda
+   passa por trás da área do notch, e a pessoa vê o conteúdo se
+   misturando com o relógio/ícones do celular. Essa faixa fixa, do
+   tamanho exato do recorte de segurança, garante que aquela área nunca
+   mostra nada além do fundo do app, não importa o que role por trás. */
+.top-safe-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--color-bg);
+  z-index: var(--z-nav);
+  pointer-events: none;
 }
 
 /* — bottom tab bar (mobile) — */

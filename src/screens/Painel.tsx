@@ -1,5 +1,6 @@
 import { useApp } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
+import { useSetPageHeader } from '../state/PageHeaderContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as const;
@@ -27,16 +28,18 @@ export function Painel() {
   const { session } = useAuth();
   const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
+  useSetPageHeader(
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      <div style={{ minWidth: 0 }}>
+        <div className="eyebrow">{mesAtualNomeCapAno}</div>
+        <h2 style={{ fontSize: 'clamp(22px, 7vw, 29px)', margin: '2px 0 0' }}>Bora fechar o mês</h2>
+      </div>
+      <div className="avatar-badge" style={{ flex: 'none' }} onClick={abrirAjustes} title="Ajustes">{inicial}</div>
+    </div>,
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div style={{ minWidth: 0 }}>
-          <div className="eyebrow">{mesAtualNomeCapAno}</div>
-          <h2 style={{ fontSize: 'clamp(22px, 7vw, 29px)', margin: '2px 0 0' }}>Bora fechar o mês</h2>
-        </div>
-        <div className="avatar-badge" style={{ flex: 'none' }} onClick={abrirAjustes} title="Ajustes">{inicial}</div>
-      </div>
-
       {mesesFechadosDisponiveis.length > 0 && (
         <div className="field" style={{ marginBottom: 0 }}>
           <label>Ver mês</label>

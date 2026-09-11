@@ -45,7 +45,7 @@ export function AlunoDetalhe() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <button className="btn btn-ghost" style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={voltar}>← Alunos</button>
         <button className="btn btn-ghost" style={{ paddingInline: 0 }} onClick={() => abrirEditarAluno(aluno.id)}>Editar</button>

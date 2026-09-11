@@ -1,5 +1,6 @@
 import { useApp } from '../state/AppContext';
 import { useAuth } from '../state/AuthContext';
+import { useSetPageHeader } from '../state/PageHeaderContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { IconeAlunos, TAMANHO_ICONE } from '../components/ui/icons';
@@ -8,15 +9,18 @@ export function GestaoPersonais() {
   const { personaisResumo, abrirAjustes } = useApp();
   const { session } = useAuth();
 
+  useSetPageHeader(
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+      <div>
+        <div className="eyebrow">Gestão</div>
+        <h2 style={{ fontSize: 29, margin: '2px 0 0' }}>Personais</h2>
+      </div>
+      <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">⚙</div>
+    </div>,
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
-          <div className="eyebrow">Gestão</div>
-          <h2 style={{ fontSize: 29, margin: '2px 0 0' }}>Personais</h2>
-        </div>
-        <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">⚙</div>
-      </div>
 
       {personaisResumo.length === 0 && (
         <EmptyState

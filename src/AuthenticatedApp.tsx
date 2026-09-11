@@ -9,6 +9,7 @@
  * economizaria nada, só atrasaria a primeira abertura de cada um. */
 import { Suspense, lazy } from 'react';
 import { AppProvider, useApp } from './state/AppContext';
+import { PageHeaderProvider, PageHeaderOutlet } from './state/PageHeaderContext';
 import { SideNav, TabBar } from './components/Nav';
 import { Toast } from './components/Toast';
 import { FeriasModal } from './components/modals/FeriasModal';
@@ -103,9 +104,11 @@ function Shell() {
   if (loading) return <TelaCarregando />;
   return (
     <div className="app-shell">
+      <div className="top-safe-mask" aria-hidden />
       {!isGestao && <SideNav />}
       <div className="app-main">
         <main className={'app-content' + (isAlunos || isDetalhe ? ' is-wide' : '')}>
+          <PageHeaderOutlet />
           <ViewingBanner />
           <Suspense fallback={<TelaCarregando />}>
             <Screen />
@@ -140,7 +143,9 @@ function Shell() {
 export default function AuthenticatedApp() {
   return (
     <AppProvider>
-      <Shell />
+      <PageHeaderProvider>
+        <Shell />
+      </PageHeaderProvider>
     </AppProvider>
   );
 }

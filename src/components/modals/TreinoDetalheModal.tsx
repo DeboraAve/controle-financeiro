@@ -1,6 +1,5 @@
 import { useApp } from '../../state/AppContext';
 import type { TreinoPdfDados } from '../../lib/treinoPdf';
-import { abrirWhatsApp } from '../../lib/whatsapp';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 
@@ -54,12 +53,6 @@ export function TreinoDetalheModal() {
     const blob = await gerarPdfTreino(dados);
     const nomeArq = nomeArquivo();
     const file = new File([blob], nomeArq, { type: 'application/pdf' });
-    // Mesma ressalva do PDF de avaliação: wa.me não manda arquivo, só
-    // texto — abre a conversa certa com um aviso, e o PDF ainda sai pelo
-    // share sheet do sistema logo em seguida, faltando só anexar.
-    if (aluno?.fone) {
-      abrirWhatsApp(aluno.fone, 'Oi, ' + aluno.nome.split(' ')[0] + '! Segue o treino em anexo.');
-    }
     const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
     if (nav.canShare && nav.canShare({ files: [file] })) {
       try {

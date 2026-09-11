@@ -1,4 +1,5 @@
 import { useApp } from '../state/AppContext';
+import { useSetPageHeader } from '../state/PageHeaderContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 import { PullToRefresh } from '../components/ui/PullToRefresh';
 
@@ -9,20 +10,23 @@ export function Agenda() {
     recarregar,
   } = useApp();
 
+  useSetPageHeader(
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <h2 style={{ fontSize: 29, margin: 0 }}>Agenda</h2>
+      <div className="seg" style={{ display: 'flex' }}>
+        <label className="seg-opt" style={{ justifyContent: 'center' }}>
+          <input type="radio" name="agendaView" checked={agendaView === 'semana'} onChange={verSemana} /><span>Semana</span>
+        </label>
+        <label className="seg-opt" style={{ justifyContent: 'center' }}>
+          <input type="radio" name="agendaView" checked={agendaView === 'mes'} onChange={verMes} /><span>Mês</span>
+        </label>
+      </div>
+    </div>,
+  );
+
   return (
     <PullToRefresh onRefresh={recarregar}>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <h2 style={{ fontSize: 29, margin: 0 }}>Agenda</h2>
-        <div className="seg" style={{ display: 'flex' }}>
-          <label className="seg-opt" style={{ justifyContent: 'center' }}>
-            <input type="radio" name="agendaView" checked={agendaView === 'semana'} onChange={verSemana} /><span>Semana</span>
-          </label>
-          <label className="seg-opt" style={{ justifyContent: 'center' }}>
-            <input type="radio" name="agendaView" checked={agendaView === 'mes'} onChange={verMes} /><span>Mês</span>
-          </label>
-        </div>
-      </div>
 
       {agendaView === 'semana' ? (
         <BlueprintCard style={{ gap: 'var(--space-2)' }}>
