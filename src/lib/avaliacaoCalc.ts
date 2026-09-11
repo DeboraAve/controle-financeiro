@@ -113,34 +113,38 @@ export interface DeltaCampo {
   delta: number;
 }
 
+export type CategoriaAvaliacao = 'Composição corporal' | 'Dobras cutâneas' | 'Perimetria';
+
 export interface CampoAvaliacao {
   key: keyof AvaliacaoBruto;
   label: string;
   unidade: string;
+  categoria: CategoriaAvaliacao;
 }
 
 // Catálogo único dos campos que dá pra comparar/plotar — usado tanto pela
 // comparação entre avaliações quanto pelos gráficos de evolução, pra não
-// duplicar a lista de labels em dois lugares.
+// duplicar a lista de labels em dois lugares. `categoria` agrupa a seleção
+// de métricas em blocos menores em vez de uma parede só de 18 opções.
 export const CAMPOS_COMPARAVEIS: CampoAvaliacao[] = [
-  { key: 'peso', label: 'Peso', unidade: 'kg' },
-  { key: 'imc', label: 'IMC', unidade: '' },
-  { key: 'percentualGordura', label: '% de gordura', unidade: '%' },
-  { key: 'massaMagra', label: 'Massa magra', unidade: 'kg' },
-  { key: 'dobraPeitoral', label: 'Peitoral', unidade: 'mm' },
-  { key: 'dobraAxilar', label: 'Axilar média', unidade: 'mm' },
-  { key: 'dobraTriceps', label: 'Tríceps', unidade: 'mm' },
-  { key: 'dobraSubescapular', label: 'Subescapular', unidade: 'mm' },
-  { key: 'dobraAbdominal', label: 'Abdominal', unidade: 'mm' },
-  { key: 'dobraSuprailiaca', label: 'Suprailíaca', unidade: 'mm' },
-  { key: 'dobraCoxa', label: 'Coxa', unidade: 'mm' },
-  { key: 'dobraBiceps', label: 'Bíceps', unidade: 'mm' },
-  { key: 'dobraPanturrilha', label: 'Panturrilha', unidade: 'mm' },
-  { key: 'perimPescoco', label: 'Pescoço', unidade: 'cm' },
-  { key: 'perimTorax', label: 'Tórax', unidade: 'cm' },
-  { key: 'perimCintura', label: 'Cintura', unidade: 'cm' },
-  { key: 'perimAbdomen', label: 'Abdômen', unidade: 'cm' },
-  { key: 'perimQuadril', label: 'Quadril', unidade: 'cm' },
+  { key: 'peso', label: 'Peso', unidade: 'kg', categoria: 'Composição corporal' },
+  { key: 'imc', label: 'IMC', unidade: '', categoria: 'Composição corporal' },
+  { key: 'percentualGordura', label: '% de gordura', unidade: '%', categoria: 'Composição corporal' },
+  { key: 'massaMagra', label: 'Massa magra', unidade: 'kg', categoria: 'Composição corporal' },
+  { key: 'dobraPeitoral', label: 'Peitoral', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraAxilar', label: 'Axilar média', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraTriceps', label: 'Tríceps', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraSubescapular', label: 'Subescapular', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraAbdominal', label: 'Abdominal', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraSuprailiaca', label: 'Suprailíaca', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraCoxa', label: 'Coxa', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraBiceps', label: 'Bíceps', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'dobraPanturrilha', label: 'Panturrilha', unidade: 'mm', categoria: 'Dobras cutâneas' },
+  { key: 'perimPescoco', label: 'Pescoço', unidade: 'cm', categoria: 'Perimetria' },
+  { key: 'perimTorax', label: 'Tórax', unidade: 'cm', categoria: 'Perimetria' },
+  { key: 'perimCintura', label: 'Cintura', unidade: 'cm', categoria: 'Perimetria' },
+  { key: 'perimAbdomen', label: 'Abdômen', unidade: 'cm', categoria: 'Perimetria' },
+  { key: 'perimQuadril', label: 'Quadril', unidade: 'cm', categoria: 'Perimetria' },
 ];
 
 // Só compara campo que existe nas duas avaliações — se uma delas não tinha

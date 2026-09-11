@@ -1,6 +1,11 @@
+html {
+  background: var(--color-bg);
+  overscroll-behavior-y: none;
+}
 body {
   margin: 0;
   background: var(--color-bg);
+  overscroll-behavior-y: none;
 }
 a {
   color: var(--color-accent-700);

@@ -29,25 +29,45 @@ export function AvaliacaoDetalheModal() {
   const { modalAvaliacaoDetalhe, avaliacaoDetalheAtual, avaliacoes, fecharModal } = useApp();
   const av = avaliacaoDetalheAtual;
 
-  const [compararComId, setCompararComId] = useState<string>('');
+  const [compararComIds, setCompararComIds] = useState<Set<string>>(new Set());
   const [secoes, setSecoes] = useState<AvaliacaoPdfSecoes>({ gerais: true, composicao: true, dobras: true, perimetria: true, comparacao: true, observacoes: true });
 
   useEffect(() => {
     if (!av) return;
     const idx = avaliacoes.findIndex((x) => x.id === av.id);
     const anterior = idx >= 0 ? avaliacoes[idx + 1] : undefined;
-    setCompararComId(anterior?.id ?? '');
+    setCompararComIds(anterior ? new Set([anterior.id]) : new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [av?.id]);
 
-  const comparada = compararComId ? avaliacoes.find((x) => x.id === compararComId) : undefined;
-  const deltas: DeltaCampo[] = av && comparada ? compararAvaliacoes(av.bruto, comparada.bruto) : [];
-  const deltaPorLabel = new Map(deltas.map((d) => [d.label, d]));
   const outrasAvaliacoes = av ? avaliacoes.filter((x) => x.id !== av.id) : [];
+  // Mais de uma comparação marcada ao mesmo tempo — cada uma entra como uma
+  // coluna de diferença própria, na mesma ordem em que aparece na lista
+  // (mais recente primeiro), não na ordem que foi clicada.
+  const comparadas = outrasAvaliacoes.filter((x) => compararComIds.has(x.id));
+  const comparacoes = av ? comparadas.map((c) => ({ data: c.data, deltas: compararAvaliacoes(av.bruto, c.bruto) })) : [];
+  const deltaPorLabel = new Map<string, { data: string; delta: DeltaCampo }[]>();
+  for (const { data, deltas } of comparacoes) {
+    for (const d of deltas) {
+      const lista = deltaPorLabel.get(d.label) ?? [];
+      lista.push({ data, delta: d });
+      deltaPorLabel.set(d.label, lista);
+    }
+  }
+  const toggleComparar = (id: string) => {
+    setCompararComIds((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const toggleSecao = (key: keyof AvaliacaoPdfSecoes) => setSecoes((s) => ({ ...s, [key]: !s[key] }));
 
-  const comparacaoPdf = comparada && deltas.length ? { data: comparada.data, itens: deltas } : null;
+  // O PDF só leva uma comparação — usa a primeira marcada (mais recente).
+  const primeiraComparacao = comparacoes[0];
+  const comparacaoPdf = primeiraComparacao && primeiraComparacao.deltas.length ? { data: primeiraComparacao.data, itens: primeiraComparacao.deltas } : null;
 
   const baixar = async () => {
     if (!av) return;
@@ -74,16 +94,16 @@ export function AvaliacaoDetalheModal() {
   };
 
   const linha = (label: string, valor: string) => {
-    const d = deltaPorLabel.get(label);
+    const ds = deltaPorLabel.get(label);
     return (
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 6%, transparent)', paddingBottom: 5 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 6%, transparent)', paddingBottom: 5, gap: 6 }}>
         <span style={{ color: 'var(--color-neutral-600)' }}>{label}</span>
-        <span style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
-          {d && (
-            <span style={{ fontSize: 11, color: d.delta === 0 ? 'var(--color-neutral-600)' : 'var(--color-accent-700)' }}>
-              ({(d.delta >= 0 ? '+' : '') + d.delta.toFixed(1) + (d.unidade ? ' ' + d.unidade : '')})
+        <span style={{ display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {ds?.map(({ data, delta: d }) => (
+            <span key={data} style={{ fontSize: 11, color: d.delta === 0 ? 'var(--color-neutral-600)' : 'var(--color-accent-700)' }}>
+              ({(d.delta >= 0 ? '+' : '') + d.delta.toFixed(1) + (d.unidade ? ' ' + d.unidade : '')} · {data})
             </span>
-          )}
+          ))}
           <span style={{ fontFamily: 'var(--font-heading)' }}>{valor}</span>
         </span>
       </div>
@@ -102,11 +122,28 @@ export function AvaliacaoDetalheModal() {
           {outrasAvaliacoes.length > 0 && (
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Comparar com</label>
-              <select className="input" value={compararComId} onChange={(e) => setCompararComId(e.target.value)}>
-                <option value="">Nenhuma comparação</option>
-                {outrasAvaliacoes.map((x) => <option key={x.id} value={x.id}>{x.data}</option>)}
-              </select>
-              {comparada && <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>Diferença desde {comparada.data} entre parênteses, ao lado de cada valor.</div>}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {outrasAvaliacoes.map((x) => (
+                  <label
+                    key={x.id}
+                    className={'tag ' + (compararComIds.has(x.id) ? 'tag-accent' : 'tag-outline')}
+                    style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={compararComIds.has(x.id)}
+                      onChange={() => toggleComparar(x.id)}
+                      style={{ margin: 0 }}
+                    />
+                    {x.data}
+                  </label>
+                ))}
+              </div>
+              {comparadas.length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>
+                  Diferença desde cada data marcada, entre parênteses, ao lado de cada valor.
+                </div>
+              )}
             </div>
           )}
 

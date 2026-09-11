@@ -4,6 +4,13 @@ import type { ExercicioPayload } from '../../lib/db';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
 
+// Lista fechada em vez de texto livre — evita "Peito"/"Peitoral"/"peito"
+// virando grupos diferentes só por causa de como cada um foi digitado.
+export const GRUPOS_MUSCULARES = [
+  'Peito', 'Costas', 'Ombro', 'Bíceps', 'Tríceps', 'Antebraço',
+  'Perna', 'Glúteo', 'Panturrilha', 'Abdômen', 'Cardio', 'Corpo inteiro',
+];
+
 export function ExercicioFormModal() {
   const { modalExercicioForm, editandoExercicio, salvarExercicio, fecharExercicioForm } = useApp();
 
@@ -50,7 +57,14 @@ export function ExercicioFormModal() {
       </div>
       <div className="field">
         <label>Grupo muscular</label>
-        <input className="input" value={grupoMuscular} onChange={(e) => setGrupoMuscular(e.target.value)} placeholder="Ex.: Peito" />
+        <select className="input" value={grupoMuscular} onChange={(e) => setGrupoMuscular(e.target.value)}>
+          <option value="">Sem grupo definido</option>
+          {/* Cadastro antigo pode ter um texto fora da lista — mantém como opção pra não trocar o valor sozinho ao abrir. */}
+          {grupoMuscular && !GRUPOS_MUSCULARES.includes(grupoMuscular) && (
+            <option value={grupoMuscular}>{grupoMuscular}</option>
+          )}
+          {GRUPOS_MUSCULARES.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
       </div>
       <div className="field">
         <label>Link de vídeo (opcional)</label>
