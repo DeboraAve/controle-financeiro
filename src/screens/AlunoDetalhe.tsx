@@ -8,7 +8,7 @@ import { CAMPOS_COMPARAVEIS } from '../lib/avaliacaoCalc';
 export function AlunoDetalhe() {
   const {
     aluno, voltar, addExtra, limparAjustes, abrirFerias, abrirInativar, abrirEditarAluno, abrirExcluirAluno, avaliacoes, avaliacoesEvolucao, abrirNovaAvaliacao,
-    treinoAtivo, treinosArquivados, abrirMontarTreino, abrirExercicios,
+    treinoAtivo, treinosArquivados, abrirMontarTreino, abrirExercicios, mesAtualNome,
   } = useApp();
   const [metricasVisiveis, setMetricasVisiveis] = useState<Set<string>>(() => new Set(['peso', 'percentualGordura']));
   if (!aluno) return null;
@@ -50,7 +50,7 @@ export function AlunoDetalhe() {
       </div>
 
       <BlueprintCard style={{ gap: 'var(--space-2)' }}>
-        <div className="card-kicker">Fechamento de setembro</div>
+        <div className="card-kicker">Fechamento de {mesAtualNome}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>{aluno.linhaBase}</span><span style={{ fontFamily: 'var(--font-heading)' }}>{aluno.baseFmt}</span></div>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-neutral-700)' }}><span>{aluno.canceladasTxt}</span><span style={{ fontFamily: 'var(--font-heading)' }}>− {aluno.descCancelFmt}</span></div>

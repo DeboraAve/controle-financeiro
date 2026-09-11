@@ -5,7 +5,7 @@ import { PullToRefresh } from '../components/ui/PullToRefresh';
 export function Caixa() {
   const {
     resumo, categorias, despValor, despDesc, setDespValor, setDespDesc, despPreview, addDespesa, despesas,
-    academiasResumo, abrirAcademias, recarregar,
+    academiasResumo, abrirAcademias, recarregar, mesAtualNomeCap,
   } = useApp();
 
   return (
@@ -49,7 +49,7 @@ export function Caixa() {
 
       <BlueprintCard style={{ gap: 'var(--space-2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div className="card-kicker">Setembro · saídas soltas</div>
+          <div className="card-kicker">{mesAtualNomeCap} · saídas soltas</div>
           <div style={{ fontSize: 11, color: 'var(--color-neutral-600)' }}>toque pra editar</div>
         </div>
         {despesas.map((d) => (

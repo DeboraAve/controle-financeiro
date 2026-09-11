@@ -419,6 +419,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const exerciciosDoOwner = effectiveOwnerId ? domainRaw.exercicios.filter((e) => donoPorExercicio[e.id] === effectiveOwnerId) : [];
     const exercicioPorId = new Map(exerciciosDoOwner.map((e) => [e.id, e]));
     const mesAtualStr = mesAtual();
+    const mesAtualNome = nomeMesLongo(mesAtualStr);
+    const mesAtualNomeCap = mesAtualNome.charAt(0).toUpperCase() + mesAtualNome.slice(1);
+    const mesAtualNomeCapAno = mesAtualNomeCap + ' ' + mesAtualStr.slice(0, 4);
 
     const soma = (f: (a: Aluno) => boolean) => ativos.filter(f).reduce((t, a) => t + calcs.get(a.id)!.total, 0);
     const previsto = soma(() => true);
@@ -960,6 +963,9 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         anelGrad: 'conic-gradient(var(--color-accent-800) 0 ' + recPct + '%, var(--color-accent-400) 0 ' + (recPct + abPct) + '%, var(--color-neutral-300) 0)',
       },
       topAlunos: top,
+      mesAtualNome,
+      mesAtualNomeCap,
+      mesAtualNomeCapAno,
       vencimentoFaixas,
       irCobranca: () => patchUi({ tab: 'cobranca' }),
       tabs: ([
@@ -1069,7 +1075,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       confirmarFerias: () => {
         if (!a) return;
         const v = parseInt(S.feriasValor || '0', 10);
-        patchAlunoOtimista(a.id, (x) => ({ ...x, status: 'ferias', ferias: v }), () => db.setAlunoStatus(a.id, 'ferias', v), 'Férias marcadas — ' + brl(v) + ' descontados de setembro.');
+        patchAlunoOtimista(a.id, (x) => ({ ...x, status: 'ferias', ferias: v }), () => db.setAlunoStatus(a.id, 'ferias', v), 'Férias marcadas — ' + brl(v) + ' descontados de ' + mesAtualNome + '.');
         patchUi({ modal: null });
       },
       confirmarInativar: () => {
@@ -1090,7 +1096,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
       irParaHoje: () => patchUi({ diaSel: hojeDia }),
       resumoSemana: aulasSemana + (aulasSemana === 1 ? ' aula' : ' aulas') + ' essa semana · ' + diasLivresSemana + (diasLivresSemana === 1 ? ' dia livre' : ' dias livres'),
       dia: {
-        titulo: String(selecionado).padStart(2, '0') + ' de setembro',
+        titulo: String(selecionado).padStart(2, '0') + ' de ' + mesAtualNome,
         total: brl(totalDia),
         aulas: aulasDoDia,
         rodape: aulasDoDia.length ? aulasDoDia.length + ' aula(s) neste dia — toque no status pra marcar feita/cancelada' : 'Dia livre — nada lançado.',
@@ -1351,7 +1357,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
                 modal: 'cobranca',
                 cobrandoId: x.id,
                 msg:
-                  'Oi, ' + x.nome.split(' ')[0] + '! Fechei setembro em ' + brl(c.total) +
+                  'Oi, ' + x.nome.split(' ')[0] + '! Fechei ' + mesAtualNome + ' em ' + brl(c.total) +
                   (c.canceladas ? ' (já com o desconto de ' + c.canceladas + ' aula(s) que não rolaram)' : '') +
                   '. Consegue acertar hoje? Chave Pix é meu celular. Bora manter o ritmo!',
               }),

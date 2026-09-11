@@ -13,7 +13,7 @@ function iniciaisDe(nome: string | undefined, email: string | undefined): string
 }
 
 export function Painel() {
-  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico, isGestao, abrirFecharMes } = useApp();
+  const { resumo, meses, viz, topAlunos, vencimentoFaixas, irCobranca, abrirAjustes, grafico, setGrafico, isGestao, abrirFecharMes, mesAtualNomeCapAno } = useApp();
   const { session } = useAuth();
   const inicial = iniciaisDe(session?.user.user_metadata?.nome as string | undefined, session?.user.email);
 
@@ -21,7 +21,7 @@ export function Painel() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <div className="eyebrow">Setembro 2026</div>
+          <div className="eyebrow">{mesAtualNomeCapAno}</div>
           <h2 style={{ fontSize: 29, margin: '2px 0 0' }}>Bora fechar o mês</h2>
         </div>
         <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">{inicial}</div>

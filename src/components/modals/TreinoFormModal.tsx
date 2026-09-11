@@ -25,7 +25,7 @@ const novoItem = (exercicioId: string): ItemDraft => ({ chave: novaChave(), exer
 const novoDia = (): DiaDraft => ({ chave: novaChave(), nome: '', itens: [] });
 
 export function TreinoFormModal() {
-  const { modalTreinoForm, aluno, exerciciosOptions, salvarNovoTreino, abrirExercicios, fecharModal } = useApp();
+  const { modalTreinoForm, aluno, exerciciosOptions, salvarNovoTreino, abrirExercicios, fecharModal, mesAtualNome } = useApp();
   const [nome, setNome] = useState('');
   const [dias, setDias] = useState<DiaDraft[]>([novoDia()]);
 
@@ -90,7 +90,7 @@ export function TreinoFormModal() {
         <>
           <div className="field">
             <label>Nome do treino</label>
-            <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Treino de setembro" />
+            <input className="input" value={nome} onChange={(e) => setNome(e.target.value)} placeholder={`Ex.: Treino de ${mesAtualNome}`} />
           </div>
 
           {dias.map((d, di) => (
