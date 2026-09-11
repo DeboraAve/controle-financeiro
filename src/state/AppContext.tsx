@@ -1157,6 +1157,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         db.insertDespesa({ dia: '28/09', cat: S.despCat, desc: S.despDesc || S.despCat, valor: v }, effectiveOwnerId || undefined)
           .then((nova) => {
             setDomainRaw((s) => ({ ...s, despesas: [nova, ...s.despesas] }));
+            if (effectiveOwnerId) setDonoPorDespesa((s) => ({ ...s, [nova.id]: effectiveOwnerId }));
             patchUi({ despValor: '', despDesc: '' });
             showToast('Despesa de ' + brl(v) + ' lançada.');
           })
@@ -1194,6 +1195,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           db.insertAcademia(payload, effectiveOwnerId || undefined)
             .then((nova) => {
               setDomainRaw((s) => ({ ...s, academias: [...s.academias, nova] }));
+              if (effectiveOwnerId) setDonoPorAcademia((s) => ({ ...s, [nova.id]: effectiveOwnerId }));
               showToast(payload.nome + ' cadastrada.');
               patchUi({ modal: 'academias', editAcademiaId: null });
             })
@@ -1264,6 +1266,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
             .insertAluno(campos, diasGerados.map((n) => ({ dia: dia2(n), status: 'feita' })), effectiveOwnerId || undefined)
             .then((novo) => {
               setDomainRaw((s) => ({ ...s, alunos: [...s.alunos, novo] }));
+              if (effectiveOwnerId) setDonoPorAluno((s) => ({ ...s, [novo.id]: effectiveOwnerId }));
               showToast(payload.nome + ' cadastrado.');
               patchUi({ modal: null, editAlunoId: null });
             })
@@ -1328,6 +1331,7 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           db.insertExercicio(payload, effectiveOwnerId || undefined)
             .then((novo) => {
               setDomainRaw((s) => ({ ...s, exercicios: [...s.exercicios, novo] }));
+              if (effectiveOwnerId) setDonoPorExercicio((s) => ({ ...s, [novo.id]: effectiveOwnerId }));
               showToast(payload.nome + ' cadastrado na biblioteca.');
               patchUi({ modal: 'exercicios', editExercicioId: null });
             })

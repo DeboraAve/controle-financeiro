@@ -49,6 +49,10 @@ export function Modal({
 
   // Ciclo de vida visual: `open` vira `false` mas o componente continua
   // montado até a animação de saída terminar (ver `aoTerminarSaida`).
+  // O timer de segurança existe porque `animationend` pode nunca disparar
+  // (aba em segundo plano, PWA minimizado, navegador que pausa animação) —
+  // sem ele o modal fica "montado" pra sempre e trava a rolagem da página
+  // de baixo mesmo depois de fechado, sem nenhum jeito de perceber por quê.
   useEffect(() => {
     if (open) {
       fechandoPorArrastoRef.current = false;
@@ -56,7 +60,11 @@ export function Modal({
       setPhase('entering');
       return;
     }
-    if (mounted && !fechandoPorArrastoRef.current) setPhase('exiting');
+    if (mounted && !fechandoPorArrastoRef.current) {
+      setPhase('exiting');
+      const seguranca = setTimeout(() => setMounted(false), 600);
+      return () => clearTimeout(seguranca);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
