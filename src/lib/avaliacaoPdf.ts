@@ -46,10 +46,12 @@ export interface AvaliacaoPdfComparacao {
   itens: DeltaCampo[];
 }
 
-const CORAL = [217, 80, 38] as const;
-const CREME = [248, 246, 244] as const;
-const TEXTO = [48, 40, 33] as const;
-const CINZA = [135, 127, 120] as const;
+// Paleta da marca Impulsa — mesmas cores de tokens.css (--color-pink-solido,
+// --color-ink, --color-off-white), só que em RGB porque jsPDF não lê CSS.
+const PINK = [209, 50, 104] as const;
+const CREME = [255, 247, 243] as const;
+const TEXTO = [27, 19, 48] as const;
+const CINZA = [118, 110, 126] as const;
 
 export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSecoes = AVALIACAO_PDF_SECOES_PADRAO, comparacao: AvaliacaoPdfComparacao | null = null): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -58,7 +60,7 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   let y = 0;
 
   // header
-  doc.setFillColor(...CORAL);
+  doc.setFillColor(...PINK);
   doc.rect(0, 0, pageW, 110, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
@@ -72,12 +74,12 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   y = 140;
 
   const secao = (titulo: string) => {
-    doc.setTextColor(...CORAL);
+    doc.setTextColor(...PINK);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(titulo.toUpperCase(), margin, y);
     y += 6;
-    doc.setDrawColor(...CORAL);
+    doc.setDrawColor(...PINK);
     doc.setLineWidth(1);
     doc.line(margin, y, pageW - margin, y);
     y += 18;

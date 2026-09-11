@@ -18,10 +18,12 @@ export interface TreinoPdfDados {
   dias: TreinoPdfDia[];
 }
 
-const CORAL = [217, 80, 38] as const;
-const CREME = [248, 246, 244] as const;
-const TEXTO = [48, 40, 33] as const;
-const CINZA = [135, 127, 120] as const;
+// Paleta da marca Impulsa — mesmas cores de tokens.css (--color-pink-solido,
+// --color-ink, --color-off-white), só que em RGB porque jsPDF não lê CSS.
+const PINK = [209, 50, 104] as const;
+const CREME = [255, 247, 243] as const;
+const TEXTO = [27, 19, 48] as const;
+const CINZA = [118, 110, 126] as const;
 
 export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -30,7 +32,7 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
   const margin = 48;
   let y = 0;
 
-  doc.setFillColor(...CORAL);
+  doc.setFillColor(...PINK);
   doc.rect(0, 0, pageW, 110, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
@@ -52,12 +54,12 @@ export function gerarPdfTreino(d: TreinoPdfDados): Blob {
 
   for (const dia of d.dias) {
     quebraSeNecessario(40);
-    doc.setTextColor(...CORAL);
+    doc.setTextColor(...PINK);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     doc.text((dia.nome || 'Treino').toUpperCase(), margin, y);
     y += 6;
-    doc.setDrawColor(...CORAL);
+    doc.setDrawColor(...PINK);
     doc.setLineWidth(1);
     doc.line(margin, y, pageW - margin, y);
     y += 20;

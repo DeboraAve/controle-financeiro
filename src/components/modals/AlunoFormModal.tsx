@@ -26,7 +26,7 @@ export function AlunoFormModal() {
   const [valorPacote, setValorPacote] = useState('');
   const [aulasPrevistas, setAulasPrevistas] = useState('8');
   const [diasSemana, setDiasSemana] = useState<number[]>([1, 3]);
-  const [horaTexto, setHoraTexto] = useState('');
+  const [horariosPorDia, setHorariosPorDia] = useState<Record<number, string>>({});
   const [horario, setHorario] = useState('');
   const [fone, setFone] = useState('');
   const [desde, setDesde] = useState('');
@@ -51,7 +51,7 @@ export function AlunoFormModal() {
       setValorPacote('');
       setAulasPrevistas('8');
       setDiasSemana([1, 3]);
-      setHoraTexto('');
+      setHorariosPorDia({});
       setHorario('');
       setFone('');
       setDesde('');
@@ -64,11 +64,14 @@ export function AlunoFormModal() {
 
   const desdeEhAntigo = !!editandoAluno && desde !== '' && diaVencimentoDe(desde) === null;
 
+  const diasOrdenados = [...diasSemana].sort((a, b) => a - b);
   const previaTexto = editandoAluno
     ? ''
-    : diasSemana.length
-      ? [...diasSemana].sort((a, b) => a - b).map((d) => NOMES_SEMANA[d]).join('/') + (horaTexto.trim() ? ' · ' + horaTexto.trim() : '')
+    : diasOrdenados.length
+      ? diasOrdenados.map((d) => NOMES_SEMANA[d] + (horariosPorDia[d]?.trim() ? ' ' + horariosPorDia[d].trim() : '')).join(' · ')
       : 'Marca os dias da semana das aulas';
+
+  const setHorarioDoDia = (d: number, v: string) => setHorariosPorDia((s) => ({ ...s, [d]: v }));
 
   const salvar = () => {
     const payload: AlunoFormPayload = {
@@ -78,7 +81,7 @@ export function AlunoFormModal() {
       valorPacote: parseInt(valorPacote || '0', 10),
       diasSemana,
       aulasPrevistas: Math.max(1, parseInt(aulasPrevistas || '1', 10)),
-      horaTexto,
+      horariosPorDia,
       horario,
       fone,
       desde,
@@ -166,10 +169,26 @@ export function AlunoFormModal() {
               ))}
             </div>
           </div>
-          <div className="field">
-            <label>Horário (opcional)</label>
-            <input className="input" value={horaTexto} onChange={(e) => setHoraTexto(e.target.value)} placeholder="Ex.: 07h" />
-          </div>
+          {diasOrdenados.length > 0 && (
+            <div className="field">
+              <label>Horário de cada dia (opcional)</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {diasOrdenados.map((d) => (
+                  <div key={d} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                    <div style={{ width: 40, fontSize: 12, color: 'var(--color-neutral-700)', fontFamily: 'var(--font-heading)' }}>{NOMES_SEMANA[d]}</div>
+                    <input
+                      className="input"
+                      style={{ flex: 1 }}
+                      value={horariosPorDia[d] ?? ''}
+                      onChange={(e) => setHorarioDoDia(d, e.target.value)}
+                      placeholder="Ex.: 07h"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>Pode deixar horários diferentes por dia, ou repetir o mesmo em todos.</div>
+            </div>
+          )}
           <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>{previaTexto}</div>
         </>
       )}

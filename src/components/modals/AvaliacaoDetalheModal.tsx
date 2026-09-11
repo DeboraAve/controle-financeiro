@@ -42,6 +42,7 @@ export function AvaliacaoDetalheModal() {
 
   const comparada = compararComId ? avaliacoes.find((x) => x.id === compararComId) : undefined;
   const deltas: DeltaCampo[] = av && comparada ? compararAvaliacoes(av.bruto, comparada.bruto) : [];
+  const deltaPorLabel = new Map(deltas.map((d) => [d.label, d]));
   const outrasAvaliacoes = av ? avaliacoes.filter((x) => x.id !== av.id) : [];
 
   const toggleSecao = (key: keyof AvaliacaoPdfSecoes) => setSecoes((s) => ({ ...s, [key]: !s[key] }));
@@ -72,12 +73,22 @@ export function AvaliacaoDetalheModal() {
     baixarBlob(blob, nomeArquivo);
   };
 
-  const linha = (label: string, valor: string) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 6%, transparent)', paddingBottom: 5 }}>
-      <span style={{ color: 'var(--color-neutral-600)' }}>{label}</span>
-      <span style={{ fontFamily: 'var(--font-heading)' }}>{valor}</span>
-    </div>
-  );
+  const linha = (label: string, valor: string) => {
+    const d = deltaPorLabel.get(label);
+    return (
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 6%, transparent)', paddingBottom: 5 }}>
+        <span style={{ color: 'var(--color-neutral-600)' }}>{label}</span>
+        <span style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+          {d && (
+            <span style={{ fontSize: 11, color: d.delta === 0 ? 'var(--color-neutral-600)' : 'var(--color-accent-700)' }}>
+              ({(d.delta >= 0 ? '+' : '') + d.delta.toFixed(1) + (d.unidade ? ' ' + d.unidade : '')})
+            </span>
+          )}
+          <span style={{ fontFamily: 'var(--font-heading)' }}>{valor}</span>
+        </span>
+      </div>
+    );
+  };
 
   return (
     <Modal
@@ -88,6 +99,17 @@ export function AvaliacaoDetalheModal() {
     >
       {av && (
         <>
+          {outrasAvaliacoes.length > 0 && (
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Comparar com</label>
+              <select className="input" value={compararComId} onChange={(e) => setCompararComId(e.target.value)}>
+                <option value="">Nenhuma comparação</option>
+                {outrasAvaliacoes.map((x) => <option key={x.id} value={x.id}>{x.data}</option>)}
+              </select>
+              {comparada && <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', marginTop: 4 }}>Diferença desde {comparada.data} entre parênteses, ao lado de cada valor.</div>}
+            </div>
+          )}
+
           <div className="card" style={{ gap: 6 }}>
             <div className="card-kicker">Composição corporal</div>
             {linha('IMC', av.imcFmt + ' · ' + av.imcClasse)}
@@ -115,28 +137,6 @@ export function AvaliacaoDetalheModal() {
             <div className="card" style={{ gap: 6 }}>
               <div className="card-kicker">Observações</div>
               <div style={{ fontSize: 13 }}>{av.observacoes}</div>
-            </div>
-          )}
-
-          {outrasAvaliacoes.length > 0 && (
-            <div className="field">
-              <label>Comparar com</label>
-              <select className="input" value={compararComId} onChange={(e) => setCompararComId(e.target.value)}>
-                <option value="">Nenhuma comparação</option>
-                {outrasAvaliacoes.map((x) => <option key={x.id} value={x.id}>{x.data}</option>)}
-              </select>
-            </div>
-          )}
-
-          {deltas.length > 0 && (
-            <div className="card" style={{ gap: 6 }}>
-              <div className="card-kicker">Diferença desde {comparada?.data}</div>
-              {deltas.map((d) => (
-                <div key={d.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, borderBottom: '1px solid color-mix(in srgb, var(--color-text) 6%, transparent)', paddingBottom: 5 }}>
-                  <span style={{ color: 'var(--color-neutral-600)' }}>{d.label}</span>
-                  <span style={{ fontFamily: 'var(--font-heading)' }}>{(d.delta >= 0 ? '+' : '') + d.delta.toFixed(1) + (d.unidade ? ' ' + d.unidade : '')}</span>
-                </div>
-              ))}
             </div>
           )}
 

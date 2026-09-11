@@ -103,7 +103,7 @@ export interface AlunoFormPayload {
   valorPacote: number;
   diasSemana: number[];
   aulasPrevistas: number;
-  horaTexto: string;
+  horariosPorDia: Record<number, string>;
   horario: string;
   fone: string;
   desde: string;
@@ -528,8 +528,8 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
     const meses = valores.map((v, i) => ({
       nome: nomes[i],
       rotulo: (v / 1000).toFixed(1) + 'k',
-      h: Math.round((v / maxV) * 88),
-      cor: i === mesAtualIdx ? 'var(--color-accent)' : i === projIdx ? 'transparent' : 'var(--color-accent-200)',
+      h: Math.max(4, Math.round((v / maxV) * 88)),
+      cor: i === mesAtualIdx ? 'var(--color-accent)' : i === projIdx ? 'repeating-linear-gradient(45deg, var(--color-accent-200), var(--color-accent-200) 4px, transparent 4px, transparent 8px)' : 'var(--color-accent-200)',
       borda: i === projIdx ? 'var(--color-accent-400)' : i === mesAtualIdx ? 'var(--color-accent)' : 'var(--color-accent-300)',
       texto: i === mesAtualIdx ? 'var(--color-accent-800)' : 'var(--color-neutral-600)',
       despesaH: i === mesAtualIdx ? Math.round((despTotal / maxV) * 88) : null,
@@ -1235,8 +1235,16 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
           for (let n = 1; n <= 30; n++) if (payload.diasSemana.includes(diaSemanaDe(n))) diasGerados.push(n);
           const previstas = Math.max(1, diasGerados.length);
           const diasOrdenados = [...payload.diasSemana].sort((x, y) => x - y);
-          const nomesDias = diasOrdenados.map((d) => nomesSemana[d].charAt(0).toUpperCase() + nomesSemana[d].slice(1)).join('/');
-          const horario = nomesDias + (payload.horaTexto.trim() ? ' · ' + payload.horaTexto.trim() : '');
+          // Junta dias com o mesmo horário (ou sem horário) num grupo só —
+          // "Seg/Qua · 07h" — e separa quem tem horário diferente — "Seg
+          // 07h · Qua 18h" — em vez de forçar um horário único pra todos.
+          const horasPorDia = diasOrdenados.map((d) => (payload.horariosPorDia[d] ?? '').trim());
+          const horaUnica = new Set(horasPorDia).size === 1 ? horasPorDia[0] : null;
+          const nomeDia = (d: number) => nomesSemana[d].charAt(0).toUpperCase() + nomesSemana[d].slice(1);
+          const horario =
+            horaUnica != null
+              ? diasOrdenados.map(nomeDia).join('/') + (horaUnica ? ' · ' + horaUnica : '')
+              : diasOrdenados.map((d, i) => nomeDia(d) + (horasPorDia[i] ? ' ' + horasPorDia[i] : '')).join(' · ');
           const plano = payload.planoTipo === 'Pacote' ? 'Pacote ' + previstas + ' aulas' : 'Mensalidade fixa';
           const campos = {
             nome: payload.nome,
@@ -1371,72 +1379,99 @@ function useAppStateInternal(userId: string, isAdmin: boolean) {
         patchUi({ modal: null, editDespesaId: null });
         showToast('Despesa excluída.');
       },
-      cobranca: {
-        frase: (cobraveis.length + fechamentosCobraveis.length)
-          ? brl(aberto + atrasado + fechamentosCobraveis.reduce((t, f) => t + f.total, 0)) + ' em aberto entre ' + (cobraveis.length + fechamentosCobraveis.length) + ' cobrança(s)'
-          : 'Nada em aberto',
-        vazio: cobraveis.length === 0 && fechamentosCobraveis.length === 0,
-        lista: [
-          ...cobraveis.map((x) => {
-            const c = calcs.get(x.id)!;
-            const atrasadoX = x.pag === 'atrasado';
-            return {
-              id: x.id,
-              nome: x.nome,
-              valor: brl(c.total),
-              detalhe: x.plano + ' · ' + (c.canceladas ? c.canceladas + ' cancelada(s) já descontada(s)' : 'pacote cheio'),
-              borda: atrasadoX ? 'var(--color-accent)' : 'var(--color-divider)',
-              tagClass: 'tag ' + (atrasadoX ? 'tag-accent' : x.pag === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
-              tagTexto: atrasadoX ? (x.atraso || 5) + ' dias' : x.pag === 'cobrado' ? 'cobrado hoje' : 'vence dia ' + diaVencimentoTexto(x),
-              botao: x.pag === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
-              cobrar: () =>
-                patchUi({
-                  modal: 'cobranca',
-                  cobrandoId: x.id,
-                  cobrandoFechamentoId: null,
-                  msg:
-                    'Oi, ' + x.nome.split(' ')[0] + '! Fechei ' + mesAtualNome + ' em ' + brl(c.total) +
-                    (c.canceladas ? ' (já com o desconto de ' + c.canceladas + ' aula(s) que não rolaram)' : '') +
-                    '. Consegue acertar hoje? Chave Pix é meu celular. Bora manter o ritmo!',
-                }),
-              baixar: () => {
-                patchAlunoLocal(x.id, (y) => ({ ...y, pag: 'pago' }));
-                db.setAlunoPag(x.id, 'pago').catch(reportError);
-                showToast(x.nome + ' pago. Boa!');
-              },
-            };
-          }),
-          ...fechamentosCobraveis.map((f) => {
-            const al = domainRaw.alunos.find((a) => a.id === f.alunoId);
-            const nome = al?.nome ?? '(aluno removido)';
-            const nomeMesF = nomeMesLongo(f.mes);
-            const atrasadoF = f.status === 'atrasado';
-            return {
-              id: 'fechamento-' + f.id,
-              nome,
-              valor: brl(f.total),
-              detalhe: 'fechamento de ' + nomeMesF,
-              borda: atrasadoF ? 'var(--color-accent)' : 'var(--color-divider)',
-              tagClass: 'tag ' + (atrasadoF ? 'tag-accent' : f.status === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
-              tagTexto: nomeMesF,
-              botao: f.status === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
-              cobrar: () =>
-                al &&
-                patchUi({
-                  modal: 'cobranca',
-                  cobrandoId: al.id,
-                  cobrandoFechamentoId: f.id,
-                  msg: 'Oi, ' + nome.split(' ')[0] + '! Ainda ficou pendente o fechamento de ' + nomeMesF + ', ' + brl(f.total) + '. Consegue acertar? Chave Pix é meu celular!',
-                }),
-              baixar: () => {
-                setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (x.id === f.id ? { ...x, status: 'pago' } : x)) }));
-                db.updateFechamentoStatus(f.id, 'pago').catch(reportError);
-                showToast(nome + ' pago (' + nomeMesF + '). Boa!');
-              },
-            };
-          }),
-        ],
-      },
+      cobranca: (() => {
+        interface ItemCobranca {
+          id: string;
+          valorNum: number;
+          valor: string;
+          detalhe: string;
+          borda: string;
+          tagClass: string;
+          tagTexto: string;
+          botao: string;
+          cobrar: () => void;
+          baixar: () => void;
+        }
+        const itensPorAluno = new Map<string, { nome: string; itens: ItemCobranca[] }>();
+        const addItem = (alunoId: string, nome: string, item: ItemCobranca) => {
+          const grupo = itensPorAluno.get(alunoId) ?? { nome, itens: [] };
+          grupo.itens.push(item);
+          itensPorAluno.set(alunoId, grupo);
+        };
+
+        for (const x of cobraveis) {
+          const c = calcs.get(x.id)!;
+          const atrasadoX = x.pag === 'atrasado';
+          addItem(x.id, x.nome, {
+            id: x.id,
+            valorNum: c.total,
+            valor: brl(c.total),
+            detalhe: 'mês corrente · ' + x.plano + ' · ' + (c.canceladas ? c.canceladas + ' cancelada(s) já descontada(s)' : 'pacote cheio'),
+            borda: atrasadoX ? 'var(--color-accent)' : 'var(--color-divider)',
+            tagClass: 'tag ' + (atrasadoX ? 'tag-accent' : x.pag === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
+            tagTexto: atrasadoX ? (x.atraso || 5) + ' dias' : x.pag === 'cobrado' ? 'cobrado hoje' : 'vence dia ' + diaVencimentoTexto(x),
+            botao: x.pag === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
+            cobrar: () =>
+              patchUi({
+                modal: 'cobranca',
+                cobrandoId: x.id,
+                cobrandoFechamentoId: null,
+                msg:
+                  'Oi, ' + x.nome.split(' ')[0] + '! Fechei ' + mesAtualNome + ' em ' + brl(c.total) +
+                  (c.canceladas ? ' (já com o desconto de ' + c.canceladas + ' aula(s) que não rolaram)' : '') +
+                  '. Consegue acertar hoje? Chave Pix é meu celular. Bora manter o ritmo!',
+              }),
+            baixar: () => {
+              patchAlunoLocal(x.id, (y) => ({ ...y, pag: 'pago' }));
+              db.setAlunoPag(x.id, 'pago').catch(reportError);
+              showToast(x.nome + ' pago. Boa!');
+            },
+          });
+        }
+
+        for (const f of fechamentosCobraveis) {
+          const al = domainRaw.alunos.find((a) => a.id === f.alunoId);
+          const nome = al?.nome ?? '(aluno removido)';
+          const nomeMesF = nomeMesLongo(f.mes);
+          const atrasadoF = f.status === 'atrasado';
+          addItem(f.alunoId, nome, {
+            id: 'fechamento-' + f.id,
+            valorNum: f.total,
+            valor: brl(f.total),
+            detalhe: 'fechamento de ' + nomeMesF,
+            borda: atrasadoF ? 'var(--color-accent)' : 'var(--color-divider)',
+            tagClass: 'tag ' + (atrasadoF ? 'tag-accent' : f.status === 'cobrado' ? 'tag-outline' : 'tag-neutral'),
+            tagTexto: nomeMesF,
+            botao: f.status === 'cobrado' ? 'Cobrar de novo' : 'Cobrar',
+            cobrar: () =>
+              al &&
+              patchUi({
+                modal: 'cobranca',
+                cobrandoId: al.id,
+                cobrandoFechamentoId: f.id,
+                msg: 'Oi, ' + nome.split(' ')[0] + '! Ainda ficou pendente o fechamento de ' + nomeMesF + ', ' + brl(f.total) + '. Consegue acertar? Chave Pix é meu celular!',
+              }),
+            baixar: () => {
+              setDomainRaw((s) => ({ ...s, fechamentos: s.fechamentos.map((x) => (x.id === f.id ? { ...x, status: 'pago' } : x)) }));
+              db.updateFechamentoStatus(f.id, 'pago').catch(reportError);
+              showToast(nome + ' pago (' + nomeMesF + '). Boa!');
+            },
+          });
+        }
+
+        const totalGeral = [...itensPorAluno.values()].reduce((t, g) => t + g.itens.reduce((t2, it) => t2 + it.valorNum, 0), 0);
+        const qtdItens = [...itensPorAluno.values()].reduce((t, g) => t + g.itens.length, 0);
+        return {
+          frase: qtdItens ? brl(totalGeral) + ' em aberto entre ' + itensPorAluno.size + ' aluno(s), ' + qtdItens + ' cobrança(s)' : 'Nada em aberto',
+          vazio: itensPorAluno.size === 0,
+          porAluno: [...itensPorAluno.entries()].map(([id, g]) => ({
+            id,
+            nome: g.nome,
+            totalFmt: brl(g.itens.reduce((t, it) => t + it.valorNum, 0)),
+            itens: g.itens,
+          })),
+        };
+      })(),
       cobrando,
       msg: S.msg,
       setMsg: (v: string) => patchUi({ msg: v }),

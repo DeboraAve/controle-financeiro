@@ -3,6 +3,13 @@ import { useAuth } from '../state/AuthContext';
 import { BlueprintCard } from '../components/BlueprintCard';
 
 const GRAFICOS = ['Barras mensais', 'Linha de caixa', 'Anel de recebimento'] as const;
+// Rótulo curto pro seletor (3 opções apertadas numa tela estreita quebravam
+// linha e ficavam desalinhadas) — o valor guardado continua o nome completo.
+const GRAFICO_LABEL: Record<(typeof GRAFICOS)[number], string> = {
+  'Barras mensais': 'Barras',
+  'Linha de caixa': 'Linha',
+  'Anel de recebimento': 'Anel',
+};
 
 function iniciaisDe(nome: string | undefined, email: string | undefined): string {
   if (nome && nome.trim()) {
@@ -23,11 +30,11 @@ export function Painel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div className="eyebrow">{mesAtualNomeCapAno}</div>
-          <h2 style={{ fontSize: 29, margin: '2px 0 0' }}>Bora fechar o mês</h2>
+          <h2 style={{ fontSize: 'clamp(22px, 7vw, 29px)', margin: '2px 0 0' }}>Bora fechar o mês</h2>
         </div>
-        <div className="avatar-badge" onClick={abrirAjustes} title="Ajustes">{inicial}</div>
+        <div className="avatar-badge" style={{ flex: 'none' }} onClick={abrirAjustes} title="Ajustes">{inicial}</div>
       </div>
 
       {mesesFechadosDisponiveis.length > 0 && (
@@ -65,8 +72,8 @@ export function Painel() {
       <>
       <BlueprintCard style={{ gap: 'var(--space-2)', padding: 'var(--space-4)' }}>
         <div className="card-kicker">Fechamento previsto</div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 44, lineHeight: 1 }}>{resumo.previsto}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(32px, 11vw, 44px)', lineHeight: 1, whiteSpace: 'nowrap' }}>{resumo.previsto}</div>
           <div style={{ fontSize: 12, color: 'var(--color-neutral-600)' }}>de {resumo.base} em pacotes</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
@@ -128,7 +135,7 @@ export function Painel() {
           {GRAFICOS.map((g) => (
             <label key={g} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
               <input type="radio" name="grafico" checked={grafico === g} onChange={() => setGrafico(g)} />
-              <span>{g}</span>
+              <span>{GRAFICO_LABEL[g]}</span>
             </label>
           ))}
         </div>
