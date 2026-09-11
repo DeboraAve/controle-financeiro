@@ -70,4 +70,5 @@ export type Modal =
   | 'exercicioForm'
   | 'treinoForm'
   | 'treinoDetalhe'
+  | 'minhaConta'
   | null;

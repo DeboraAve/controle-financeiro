@@ -772,3 +772,10 @@ export async function updateProfileBilling(id: string, patch: Partial<{ fone: st
   const { error } = await supabase.from('profiles').update(row).eq('id', id);
   if (error) throw error;
 }
+
+// Só mexe na própria linha (auth.uid(), garantido pela função no banco) —
+// nunca em role/mensalidade, mesmo se alguém tentar forçar via payload.
+export async function updateOwnProfile(nome: string, fone: string, email: string): Promise<void> {
+  const { error } = await supabase.rpc('update_own_profile', { p_nome: nome, p_fone: fone, p_email: email });
+  if (error) throw error;
+}

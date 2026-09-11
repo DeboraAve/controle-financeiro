@@ -6,8 +6,8 @@ import { Stack } from '../components/ui/Stack';
 import { useAuth } from '../state/AuthContext';
 
 export function Auth() {
-  const { signIn, signUp } = useAuth();
-  const [modo, setModo] = useState<'entrar' | 'criar'>('entrar');
+  const { signIn, signUp, enviarRecuperacaoSenha } = useAuth();
+  const [modo, setModo] = useState<'entrar' | 'criar' | 'recuperar'>('entrar');
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -18,6 +18,18 @@ export function Auth() {
   const submeter = async () => {
     setErro(null);
     setAviso(null);
+    if (modo === 'recuperar') {
+      if (!email) {
+        setErro('Preenche o e-mail.');
+        return;
+      }
+      setEnviando(true);
+      const msg = await enviarRecuperacaoSenha(email);
+      if (msg) setErro(traduzErro(msg));
+      else setAviso('Te mandamos um link por e-mail pra você escolher uma senha nova.');
+      setEnviando(false);
+      return;
+    }
     if (!email || !senha) {
       setErro('Preenche e-mail e senha.');
       return;
@@ -47,7 +59,7 @@ export function Auth() {
       <Stack gap={4} style={{ width: '100%', maxWidth: 360 }}>
         <div style={{ textAlign: 'center' }}>
           <div className="eyebrow">Impulsa</div>
-          <h1 style={{ fontSize: 'var(--text-3xl)', margin: '6px 0 0' }}>{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</h1>
+          <h1 style={{ fontSize: 'var(--text-3xl)', margin: '6px 0 0' }}>{modo === 'entrar' ? 'Entrar' : modo === 'criar' ? 'Criar conta' : 'Recuperar senha'}</h1>
         </div>
 
         <Card style={{ gap: 'var(--space-3)' }}>
@@ -57,23 +69,38 @@ export function Auth() {
             </Field>
           )}
           <Field label="E-mail">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" />
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com" onKeyDown={(e) => modo === 'recuperar' && e.key === 'Enter' && submeter()} />
           </Field>
-          <Field label="Senha">
-            <Input
-              type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="••••••••"
-              onKeyDown={(e) => e.key === 'Enter' && submeter()}
-            />
-          </Field>
+          {modo !== 'recuperar' && (
+            <Field label="Senha">
+              <Input
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={(e) => e.key === 'Enter' && submeter()}
+              />
+            </Field>
+          )}
+          {modo === 'entrar' && (
+            <Button
+              variant="ghost"
+              style={{ alignSelf: 'flex-start', padding: 0, fontSize: 12 }}
+              onClick={() => {
+                setModo('recuperar');
+                setErro(null);
+                setAviso(null);
+              }}
+            >
+              Esqueci minha senha
+            </Button>
+          )}
 
           {erro && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--status-danger)' }}>{erro}</div>}
           {aviso && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-accent)' }}>{aviso}</div>}
 
           <Button variant="primary" block onClick={submeter} disabled={enviando} loading={enviando}>
-            {modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+            {modo === 'entrar' ? 'Entrar' : modo === 'criar' ? 'Criar conta' : 'Enviar link de recuperação'}
           </Button>
         </Card>
 

@@ -4,6 +4,7 @@ import { InstallPrompt } from './components/InstallPrompt';
 import { OfflineBanner } from './components/OfflineBanner';
 import { SkeletonCard, SkeletonRow } from './components/ui/Skeleton';
 import { Auth } from './screens/Auth';
+import { RecuperarSenha } from './screens/RecuperarSenha';
 
 /* Tudo que só existe depois do login (AppContext, as telas, os 11
  * modais) vira um chunk à parte — quem está na tela de Auth não baixa
@@ -25,8 +26,9 @@ function Carregando() {
 }
 
 function Gate() {
-  const { session, loading } = useAuth();
+  const { session, loading, recovery } = useAuth();
   if (loading) return <Carregando />;
+  if (recovery) return <RecuperarSenha />;
   if (!session) return <Auth />;
   return (
     <Suspense fallback={<Carregando />}>

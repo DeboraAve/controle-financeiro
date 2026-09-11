@@ -27,6 +27,7 @@ import { ExerciciosModal } from './components/modals/ExerciciosModal';
 import { ExercicioFormModal } from './components/modals/ExercicioFormModal';
 import { TreinoFormModal } from './components/modals/TreinoFormModal';
 import { TreinoDetalheModal } from './components/modals/TreinoDetalheModal';
+import { MinhaContaModal } from './components/modals/MinhaContaModal';
 import { SkeletonCard, SkeletonRow } from './components/ui/Skeleton';
 import { IconeAlunos, TAMANHO_ICONE } from './components/ui/icons';
 
@@ -127,6 +128,7 @@ function Shell() {
       <ExercicioFormModal />
       <TreinoFormModal />
       <TreinoDetalheModal />
+      <MinhaContaModal />
     </div>
   );
 }

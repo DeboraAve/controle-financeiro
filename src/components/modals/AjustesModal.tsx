@@ -12,7 +12,7 @@ const TEMAS: { v: Tema; rotulo: string }[] = [
 ];
 
 export function AjustesModal() {
-  const { modalAjustes, fecharModal, isGestao, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso } = useApp();
+  const { modalAjustes, fecharModal, isGestao, metaMensal, setMetaMensal, diasParaAtraso, setDiasParaAtraso, abrirMinhaConta } = useApp();
   const { session, isAdmin, signOut } = useAuth();
   const [tema, setTema] = useState<Tema>(lerTema);
   const escolherTema = (t: Tema) => {
@@ -71,6 +71,7 @@ export function AjustesModal() {
           </div>
         </>
       )}
+      <button className="btn btn-secondary btn-block" onClick={abrirMinhaConta}>Minha conta</button>
       <div style={{ fontSize: 11, color: 'var(--color-neutral-600)', borderTop: '1px solid var(--color-divider)', paddingTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
         Logado como {session?.user.email}
         <span className={isAdmin ? 'tag tag-accent' : 'tag tag-neutral'} style={{ fontSize: 9 }}>{isAdmin ? 'admin' : 'personal'}</span>
