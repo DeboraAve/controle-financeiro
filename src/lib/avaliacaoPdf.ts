@@ -76,6 +76,10 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
   doc.rect(0, 0, pageW, 110, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  // Espaça as letras à mão (jsPDF não tem letter-spacing) pra imitar o
+  // tom "wordmark" do app no canto do cabeçalho.
+  doc.text('I M P U L S A', pageW - margin, 30, { align: 'right' });
   doc.setFontSize(11);
   doc.text('AVALIAÇÃO FÍSICA', margin, 38);
   doc.setFontSize(22);
@@ -98,22 +102,30 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
     y += 20;
   }
 
+  // Título curto (traço de destaque de 30pt, não a largura da página
+  // inteira) em vez de uma linha horizontal cheia repetida 5-6 vezes por
+  // página — era isso que dava a cara de planilha exportada.
   const secao = (titulo: string) => {
-    quebraSeNecessario(30);
     doc.setTextColor(...PINK);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(titulo.toUpperCase(), margin, y);
-    y += 6;
+    y += 8;
     doc.setDrawColor(...PINK);
-    doc.setLineWidth(1);
-    doc.line(margin, y, pageW - margin, y);
-    y += 22;
+    doc.setLineWidth(1.5);
+    doc.line(margin, y, margin + 30, y);
+    y += 20;
   };
 
   // Cada campo vira um cartãozinho (fundo creme, cantos arredondados) em
   // vez de texto solto — era o que fazia a página parecer crua/rascunho.
-  const linhaCampos = (campos: AvaliacaoPdfCampo[], porLinha = 3) => {
+  // Título e cartões quebram de página juntos como um bloco só — antes o
+  // título calculava sua própria quebra sem saber do bloco de cartões
+  // logo depois, então às vezes ele ficava sozinho no rodapé de uma
+  // página enquanto os cartões pulavam pra próxima, sobrando um vão em
+  // branco embaixo do título (achado com um PDF de verdade, não só lendo
+  // o código).
+  const secaoComCampos = (titulo: string, campos: AvaliacaoPdfCampo[], porLinha = 3) => {
     const gap = 8;
     const colW = (pageW - margin * 2 - gap * (porLinha - 1)) / porLinha;
     const linhas = Math.ceil(campos.length / porLinha);
@@ -122,7 +134,11 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
     // colunas estreitas (dobras/perimetria, 4 por linha) um valor tipo
     // "60 cm (-31.0)" não cabe junto sem risco de cortar.
     const cardH = deltaPorLabel.size ? 56 : 46;
-    quebraSeNecessario(linhas * (cardH + gap));
+    const alturaTitulo = 28;
+    const alturaCartoes = linhas * (cardH + gap);
+    quebraSeNecessario(alturaTitulo + alturaCartoes);
+
+    secao(titulo);
     doc.setFontSize(9);
     campos.forEach((c, i) => {
       const col = i % porLinha;
@@ -148,16 +164,14 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
       }
       doc.setFontSize(9);
     });
-    y += linhas * (cardH + gap) + 10;
+    y += alturaCartoes + 10;
   };
 
   if (secoes.gerais) {
-    secao('Dados gerais');
-    linhaCampos(d.gerais);
+    secaoComCampos('Dados gerais', d.gerais);
   }
 
   if (secoes.composicao) {
-    secao('Composição corporal');
     const composicao: AvaliacaoPdfCampo[] = [
       { label: 'IMC', valor: d.imcFmt + ' · ' + d.imcClasse },
       { label: 'Risco à saúde', valor: d.risco },
@@ -166,35 +180,41 @@ export function gerarPdfAvaliacao(d: AvaliacaoPdfDados, secoes: AvaliacaoPdfSeco
       { label: 'Massa magra', valor: d.massaMagraFmt },
     ];
     if (d.rcqFmt) composicao.push({ label: 'Relação cintura-quadril', valor: d.rcqFmt });
-    linhaCampos(composicao);
+    secaoComCampos('Composição corporal', composicao);
   }
 
   if (secoes.dobras && d.dobras.length) {
-    secao('Dobras cutâneas (mm)');
-    linhaCampos(d.dobras, 4);
+    secaoComCampos('Dobras cutâneas (mm)', d.dobras, 4);
   }
 
   if (secoes.perimetria && d.perimetria.length) {
-    secao('Perimetria (cm)');
-    linhaCampos(d.perimetria, 4);
+    secaoComCampos('Perimetria (cm)', d.perimetria, 4);
   }
 
   if (secoes.observacoes && d.observacoes.trim()) {
-    secao('Observações');
-    doc.setTextColor(...TEXTO);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    const linhas = doc.splitTextToSize(d.observacoes, pageW - margin * 2);
-    quebraSeNecessario(linhas.length * 14 + 10);
-    doc.text(linhas, margin, y);
-    y += linhas.length * 14 + 10;
+    const linhasObs = doc.splitTextToSize(d.observacoes, pageW - margin * 2);
+    quebraSeNecessario(28 + linhasObs.length * 14 + 10);
+    secao('Observações');
+    doc.setTextColor(...TEXTO);
+    doc.text(linhasObs, margin, y);
+    y += linhasObs.length * 14 + 10;
   }
 
-  doc.setFillColor(...CREME);
-  doc.setDrawColor(...CREME);
-  doc.setTextColor(...CINZA);
-  doc.setFontSize(8);
-  doc.text('Gerado via Impulsa em ' + new Date().toLocaleDateString('pt-BR'), margin, doc.internal.pageSize.getHeight() - 30);
+  // Carimba rodapé + numeração em toda página — antes só a última página
+  // (a que `y` calhava de estar quando o doc terminava) ganhava rodapé;
+  // com a avaliação agora normalmente virando 2+ páginas, as anteriores
+  // ficavam sem nada embaixo.
+  const totalPaginas = doc.getNumberOfPages();
+  for (let p = 1; p <= totalPaginas; p++) {
+    doc.setPage(p);
+    doc.setTextColor(...CINZA);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Gerado via Impulsa em ' + new Date().toLocaleDateString('pt-BR'), margin, pageH - 30);
+    doc.text(`Página ${p}/${totalPaginas}`, pageW - margin, pageH - 30, { align: 'right' });
+  }
 
   return doc.output('blob');
 }
